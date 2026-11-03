@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -100,29 +102,19 @@ namespace SnapshotTool
         private static void SnapMainWindow(string path)
         {
             var vm = new MainViewModel(new DialogService(), new SemiconductorUi.Repositories.UserRepositoryImpl(Path.GetTempFileName()), new OfflineDevice());
-            var window = new SemiconductorUi.Wpf.MainWindow
-            {
-                DataContext = vm,
-                WindowState = WindowState.Normal,
-                Width = 1600,
-                Height = 900,
-                Left = -20000,
-                Top = -20000,
-                ShowInTaskbar = false,
-                ShowActivated = false,
-            };
-            window.Show();
-            Pump(300);
-            // CI 화면이 1600보다 좁으면 창이 화면 크기로 줄어든다. 내용만 떼어 1600x900으로 따로 배치한다.
+            // 창을 띄우면 CI 화면 크기로 줄어들기 때문에, 띄우지 않고 내용만 떼어 1600x900으로 배치한다.
+            var window = new SemiconductorUi.Wpf.MainWindow();
             var root = (FrameworkElement)window.Content;
             window.Content = null;
-            root.DataContext = vm;
-            root.Measure(new Size(1600, 900));
-            root.Arrange(new Rect(0, 0, 1600, 900));
-            root.UpdateLayout();
-            Pump(500);
-            root.UpdateLayout();
-            Save(root, 1600, 900, path);
+            var host = new Border { Background = window.Background, Child = root, DataContext = vm };
+            TextElement.SetFontFamily(host, window.FontFamily);
+            foreach (var key in window.Resources.Keys) host.Resources[key] = window.Resources[key];
+            host.Measure(new Size(1600, 900));
+            host.Arrange(new Rect(0, 0, 1600, 900));
+            host.UpdateLayout();
+            Pump(800);
+            host.UpdateLayout();
+            Save(host, 1600, 900, path);
             window.Close();
         }
 
