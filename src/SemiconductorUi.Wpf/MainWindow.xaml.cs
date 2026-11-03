@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 
 namespace SemiconductorUi.Wpf
@@ -7,6 +8,12 @@ namespace SemiconductorUi.Wpf
         public MainWindow()
         {
             InitializeComponent();
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            (DataContext as IDisposable)?.Dispose();
+            base.OnClosed(e);
         }
     }
 }
