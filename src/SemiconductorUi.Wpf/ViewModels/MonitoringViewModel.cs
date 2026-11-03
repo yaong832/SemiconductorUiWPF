@@ -1,5 +1,8 @@
 using System;
 using System.Windows.Input;
+using System.Windows.Media;
+using SemiconductorUi.Controls;
+using SemiconductorUi.Wpf.Controls;
 using SemiconductorUi.Wpf.Infrastructure;
 using SemiconductorUi.Wpf.Services;
 using ProcessState = SemiconductorUi.ViewModels.MainFormViewModel.ProcessState;
@@ -37,8 +40,97 @@ namespace SemiconductorUi.Wpf.ViewModels
                 OnPropertyChanged(nameof(WaferLoadText));
                 OnPropertyChanged(nameof(PauseText));
                 OnPropertyChanged(nameof(ElapsedText));
+                if (e.PropertyName == nameof(State.CurrentProcessState)) ApplyLampForState();
+                UpdateScene();
             };
+            ApplyLampForState();
         }
+
+        #region 장비 캔버스 / 램프
+
+        // 원본 Form1UiUpdater.UpdateMainLampColors에서 쓰는 색 (Color.LimeGreen/ForestGreen/Goldenrod/Firebrick)
+        private static readonly Color LimeGreen = Color.FromRgb(50, 205, 50);
+        private static readonly Color Goldenrod = Color.FromRgb(218, 165, 32);
+        private static readonly Color Firebrick = Color.FromRgb(178, 34, 34);
+
+        private bool _lampGreen, _lampYellow, _lampRed;
+
+        /// <summary>장비 캔버스에 그릴 상태</summary>
+        public EquipmentScene Scene { get; } = new EquipmentScene();
+
+        /// <summary>원본 Form1.SetProcessState의 램프 부분</summary>
+        private void ApplyLampForState()
+        {
+            switch (State.CurrentProcessState)
+            {
+                case ProcessState.Running: SetMainLamp(true, false, false); break;
+                case ProcessState.Error: SetMainLamp(false, false, true); break;
+                default: SetMainLamp(false, true, false); break;
+            }
+        }
+
+        /// <summary>
+        /// 원본 Form1UiUpdater.UpdateMainLampColors: 화면 램프 + EtherCAT 연결 시 실제 3색 램프(DO 0=적, 1=황, 2=녹)
+        /// </summary>
+        private void SetMainLamp(bool green, bool yellow, bool red)
+        {
+            _lampGreen = green; _lampYellow = yellow; _lampRed = red;
+            if (_shell.IsEthercatConnected && _shell.Ethercat != null)
+            {
+                try
+                {
+                    _shell.Ethercat.Digital_Output(0, red);
+                    _shell.Ethercat.Digital_Output(1, yellow);
+                    _shell.Ethercat.Digital_Output(2, green);
+                }
+                catch (Exception ex)
+                {
+                    _shell.AddLog($"3색 램프 제어 오류: {ex.Message}", "ERROR");
+                }
+            }
+            UpdateScene();
+        }
+
+        /// <summary>뷰모델 상태를 장비 캔버스 상태로 옮긴다.</summary>
+        public void UpdateScene()
+        {
+            var s = Scene;
+            s.LampGreen = _lampGreen ? LimeGreen : Rendering.Palette.LampOff;
+            s.LampYellow = _lampYellow ? Goldenrod : Rendering.Palette.LampOff;
+            s.LampRed = _lampRed ? Firebrick : Rendering.Palette.LampOff;
+
+            int capacity = AppSettings.MaxFoupCapacity;
+            s.FoupA.Capacity = capacity;
+            s.FoupB.Capacity = capacity;
+            s.FoupA.Mounted = State.IsFoupAMounted;
+            s.FoupB.Mounted = State.IsFoupBMounted;
+            s.FoupA.WaferCount = State.CurrentFoupACount;
+            s.FoupB.WaferCount = State.CurrentFoupBCount;
+
+            foreach (var region in new[] { EquipmentRegion.ChamberA, EquipmentRegion.ChamberB, EquipmentRegion.ChamberC })
+            {
+                var c = s.Chambers[region];
+                c.ValveOpen = State.IsDoorOpen(region) ? 1 : 0;
+                // TODO(4단계): 원본 UpdateChamberLampUI (공정 중 녹색, 완료 시 깜빡임)은 챔버 공정 이관 때 연결
+                c.LampColor = Rendering.Palette.LampOff;
+            }
+
+            s.TmTarget = State.TmVisualTarget;
+            s.TmCarrying = State.TmCarryingVisual;
+            s.TmExtension = State.TmBladeExtensionFactor;
+            s.IsSimulation = !_shell.IsEthercatConnected;
+
+            var side = s.SideView;
+            side.Target = State.TmVisualTarget;
+            side.WaferOnBlade = State.TmCarryingVisual;
+            side.VacuumOn = State.TmCarryingVisual;
+            side.Extension = State.TmBladeExtensionFactor >= 1.0f ? 1 : 0;
+            side.IsHardware = _shell.IsEthercatConnected;
+
+            s.NotifyChanged();
+        }
+
+        #endregion
 
         public MainViewModel Shell => _shell;
 
@@ -73,10 +165,23 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         public string ElapsedText => TimeSpan.FromSeconds(_shell.Simulation.ElapsedSeconds).ToString(@"hh\:mm\:ss");
 
+        /// <summary>장비 그림에서 챔버/FOUP 클릭 (원본: PmDetailForm/EquipmentDetailForm 열기)</summary>
+        public void OpenRegionDetail(EquipmentRegion region)
+        {
+            // TODO(5단계): PmDetailForm / EquipmentDetailForm 이관
+            _shell.AddLog($"{region} 상세 화면은 다음 단계에서 이관됩니다.", "INFO");
+        }
+
         /// <summary>공정 타이머 Tick (UI 스레드)</summary>
         internal void OnTick()
         {
             OnPropertyChanged(nameof(ElapsedText));
+            // 원본 TimerEventHandlers: 시뮬레이션 모드에서 진행 중이면 녹색 램프를 깜빡인다.
+            if (!_shell.IsEthercatConnected && State.CurrentProcessState == ProcessState.Running)
+            {
+                State.MainLampBlinkState = !State.MainLampBlinkState;
+                SetMainLamp(State.MainLampBlinkState, false, false);
+            }
         }
 
         private void Start()

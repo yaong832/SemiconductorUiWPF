@@ -11,6 +11,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{9030A952
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SemiconductorUi.Core.Tests", "tests\SemiconductorUi.Core.Tests\SemiconductorUi.Core.Tests.csproj", "{F4B1EF95-21F3-4FE6-9F62-262579C4E82F}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{BAABBFD8-6D6B-4CD8-852C-3EC70E0A28C6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnapshotTool", "tools\SnapshotTool\SnapshotTool.csproj", "{A3839BF7-F850-4A5A-823E-50E560FE12D4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -28,9 +32,14 @@ Global
 		{F4B1EF95-21F3-4FE6-9F62-262579C4E82F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F4B1EF95-21F3-4FE6-9F62-262579C4E82F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F4B1EF95-21F3-4FE6-9F62-262579C4E82F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3839BF7-F850-4A5A-823E-50E560FE12D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3839BF7-F850-4A5A-823E-50E560FE12D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3839BF7-F850-4A5A-823E-50E560FE12D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3839BF7-F850-4A5A-823E-50E560FE12D4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{62AFF676-5FA7-4EC5-8B00-9A4F32398245} = {DF34FABA-D893-47D0-91F4-FF98A755D659}
 		{F4B1EF95-21F3-4FE6-9F62-262579C4E82F} = {9030A952-F9F9-4C84-9339-E25EBF3C6247}
+		{A3839BF7-F850-4A5A-823E-50E560FE12D4} = {BAABBFD8-6D6B-4CD8-852C-3EC70E0A28C6}
 	EndGlobalSection
 EndGlobal
