@@ -112,9 +112,17 @@ namespace SnapshotTool
                 ShowActivated = false,
             };
             window.Show();
-            Pump(500);
+            Pump(300);
+            // CI 화면이 1600보다 좁으면 창이 화면 크기로 줄어든다. 내용만 떼어 1600x900으로 따로 배치한다.
             var root = (FrameworkElement)window.Content;
-            Save(root, (int)root.ActualWidth, (int)root.ActualHeight, path);
+            window.Content = null;
+            root.DataContext = vm;
+            root.Measure(new Size(1600, 900));
+            root.Arrange(new Rect(0, 0, 1600, 900));
+            root.UpdateLayout();
+            Pump(500);
+            root.UpdateLayout();
+            Save(root, 1600, 900, path);
             window.Close();
         }
 
