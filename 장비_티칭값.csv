@@ -1,0 +1,53 @@
+카테고리,위치,Axis,
+Basic Settings,DESCEND_OFFSET,오프셋값,30000
+Home Position,Home,X,0
+Home Position,Home,Y,0
+,,,
+Chamber A,Chamber A,X,-59064
+Chamber A,Chamber A,안착위치,806931
+Chamber A,Chamber A,상승위치,1156931
+Chamber A,Chamber A,하강위치,776931
+,,,
+Chamber B,Chamber B,X,-190823
+Chamber B,Chamber B,안착위치,806931
+Chamber B,Chamber B,상승위치,1156931
+Chamber B,Chamber B,하강위치,776931
+,,,
+Chamber C,Chamber C,X,-321600
+Chamber C,Chamber C,안착위치,806931
+Chamber C,Chamber C,상승위치,1156931
+Chamber C,Chamber C,하강위치,776931
+,,,
+FOUP A,FOUP A,X,14140
+FOUP A,Slot 1,안착위치,102379
+FOUP A,Slot 1,상승위치,302380
+FOUP A,Slot 1,하강위치,72379
+FOUP A,Slot 2,안착위치,782378
+FOUP A,Slot 2,상승위치,982378
+FOUP A,Slot 2,하강위치,752378
+FOUP A,Slot 3,안착위치,1432388
+FOUP A,Slot 3,상승위치,1627604
+FOUP A,Slot 3,하강위치,1402388
+FOUP A,Slot 4,안착위치,2119399
+FOUP A,Slot 4,상승위치,2332102
+FOUP A,Slot 4,하강위치,2089399
+FOUP A,Slot 5,안착위치,2818463
+FOUP A,Slot 5,상승위치,3018457
+FOUP A,Slot 5,하강위치,2788463
+,,,
+FOUP B,FOUP B,X,-394293
+FOUP B,Slot 1,안착위치,102379
+FOUP B,Slot 1,상승위치,302380
+FOUP B,Slot 1,하강위치,72379
+FOUP B,Slot 2,안착위치,782378
+FOUP B,Slot 2,상승위치,982378
+FOUP B,Slot 2,하강위치,752378
+FOUP B,Slot 3,안착위치,1432388
+FOUP B,Slot 3,상승위치,1627604
+FOUP B,Slot 3,하강위치,1402388
+FOUP B,Slot 4,안착위치,2119399
+FOUP B,Slot 4,상승위치,2332102
+FOUP B,Slot 4,하강위치,2089399
+FOUP B,Slot 5,안착위치,2818463
+FOUP B,Slot 5,상승위치,3018457
+FOUP B,Slot 5,하강위치,2788463

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RootNamespace>SemiconductorUi.Wpf</RootNamespace>
+    <AssemblyName>SemiconductorUi.Wpf</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SemiconductorUi.Core\SemiconductorUi.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="IEG3268_Dll">
+      <HintPath>..\..\lib\IEG3268_Dll.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
