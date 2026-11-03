@@ -31,7 +31,9 @@ namespace SnapshotTool
             failures += Try(() => SnapCanvas(Path.Combine(outDir, "canvas-transfer-1400x720.png"), 1400, 720, Transfer()));
             failures += Try(() => SnapCanvas(Path.Combine(outDir, "canvas-narrow-820x560.png"), 820, 560, Transfer()));
             failures += Try(() => SnapCanvas(Path.Combine(outDir, "canvas-foup-1400x720.png"), 1400, 720, PickFromFoup()));
-            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-1600x900.png")));
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-1600x900.png"), 0));
+            // 시뮬레이션 공정을 돌린 중간 화면 (공정 엔진이 그림을 움직이는지 확인)
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-running-1600x900.png"), 75));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
         }
@@ -99,9 +101,20 @@ namespace SnapshotTool
             Save(canvas, w, h, path);
         }
 
-        private static void SnapMainWindow(string path)
+        private static void SnapMainWindow(string path, int simulationTicks)
         {
-            var vm = new MainViewModel(new DialogService(), new SemiconductorUi.Repositories.UserRepositoryImpl(Path.GetTempFileName()), new OfflineDevice());
+            var vm = new MainViewModel(new AutoDialogs(), new SemiconductorUi.Repositories.UserRepositoryImpl(Path.GetTempFileName()), new OfflineDevice());
+            if (simulationTicks > 0)
+            {
+                vm.State.IsLoggedIn = true;
+                vm.State.CurrentUser = "operator";
+                vm.State.CurrentRole = "운영자";
+                vm.Engine.ToggleFoupMountButton();
+                vm.Engine.WaferLoadingButton();
+                vm.Engine.StartButton();
+                vm.Simulation.StopTimer(); // 실제 타이머 대신 직접 틱을 넣는다
+                for (int i = 0; i < simulationTicks; i++) vm.Engine.OnSimulationTick();
+            }
             // 창을 띄우면 CI 화면 크기로 줄어들기 때문에, 띄우지 않고 내용만 떼어 1600x900으로 배치한다.
             var window = new SemiconductorUi.Wpf.MainWindow();
             var root = (FrameworkElement)window.Content;
@@ -112,7 +125,7 @@ namespace SnapshotTool
             host.Measure(new Size(1600, 900));
             host.Arrange(new Rect(0, 0, 1600, 900));
             host.UpdateLayout();
-            Pump(800);
+            Pump(simulationTicks > 0 ? 3000 : 800); // TM 애니메이션이 자리 잡도록
             host.UpdateLayout();
             Save(host, 1600, 900, path);
             window.Close();
@@ -139,6 +152,18 @@ namespace SnapshotTool
     }
 
     /// <summary>연결되지 않은 장비 (스냅샷용)</summary>
+    /// <summary>창을 띄우지 않는 대화상자: 확인은 예, 웨이퍼 수는 최대값</summary>
+    internal sealed class AutoDialogs : IDialogService
+    {
+        public void Info(string message, string title = "안내") { }
+        public void Warn(string message, string title = "경고") { }
+        public void Error(string message, string title = "오류") { }
+        public bool Confirm(string message, string title = "확인") => true;
+        public bool Confirm(string message, string title, bool defaultNo) => true;
+        public int? PromptWaferCount(int current, int min, int max) => max;
+        public bool TryLogin(out string username, out string password) { username = null; password = null; return false; }
+    }
+
     internal sealed class OfflineDevice : IEthercatDevice
     {
         public bool CIFX_50RE_Connect() => false;

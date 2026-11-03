@@ -8,6 +8,12 @@ namespace SemiconductorUi.Wpf.Services
         void Error(string message, string title = "오류");
         bool Confirm(string message, string title = "확인");
 
+        /// <summary>예/아니오 확인. defaultNo면 '아니오'가 기본 버튼 (원본 MessageBoxDefaultButton.Button2).</summary>
+        bool Confirm(string message, string title, bool defaultNo);
+
+        /// <summary>로딩할 웨이퍼 수 입력 (원본 FoupManager.PromptForWaferCount). 취소하면 null.</summary>
+        int? PromptWaferCount(int current, int min, int max);
+
         /// <summary>로그인 창을 띄운다. 취소하면 false.</summary>
         bool TryLogin(out string username, out string password);
     }

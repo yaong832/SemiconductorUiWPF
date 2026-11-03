@@ -59,11 +59,18 @@
             <StackPanel>
                 <!-- 공정 경과 시간 -->
                 <Border Style="{StaticResource Card}">
-                    <DockPanel>
-                        <TextBlock Text="공정 경과" Style="{StaticResource CardTitle}" Margin="0" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding ElapsedText}" HorizontalAlignment="Right" FontSize="16" FontWeight="Bold"
-                                   Foreground="{StaticResource TextPrimary}" FontFamily="Consolas"/>
-                    </DockPanel>
+                    <StackPanel>
+                        <DockPanel>
+                            <TextBlock Text="공정 경과" Style="{StaticResource CardTitle}" Margin="0" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding ElapsedText}" HorizontalAlignment="Right" FontSize="16" FontWeight="Bold"
+                                       Foreground="{StaticResource TextPrimary}" FontFamily="Consolas"/>
+                        </DockPanel>
+                        <!-- 원본 labelSummaryTMStatus / StatusProcessDetail -->
+                        <TextBlock Margin="0,6,0,0" Foreground="{StaticResource TextSecondary}" TextTrimming="CharacterEllipsis">
+                            <Run Text="TM:"/> <Run Text="{Binding TmStatusText, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}"/>
+                        </TextBlock>
+                        <TextBlock Margin="0,2,0,0" Text="{Binding ProcessDetailText, Mode=OneWay}" Foreground="{StaticResource TextSecondary}" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
                 </Border>
 
                 <!-- 제어 패널 -->
@@ -76,7 +83,7 @@
                             <Button Content="알람 리셋" Style="{StaticResource PanelButton}" Command="{Binding ResetAlarmCommand}"/>
                             <Button Content="공정 리셋" Style="{StaticResource PanelButton}" Command="{Binding ResetProcessCommand}"/>
                             <Button Content="장비 제어" Style="{StaticResource PanelButton}" Command="{Binding NotYetPortedCommand}" CommandParameter="장비 제어"/>
-                            <Button Content="원점복귀" Style="{StaticResource PanelButton}" Command="{Binding NotYetPortedCommand}" CommandParameter="원점복귀"/>
+                            <Button Content="원점복귀" Style="{StaticResource PanelButton}" Command="{Binding Shell.HomeCommand}"/>
                         </UniformGrid>
                         <Button Content="긴급 정지" Style="{StaticResource DangerButton}" Margin="3,6,3,0" Height="48" FontSize="15"
                                 Command="{Binding EmergencyStopCommand}"/>

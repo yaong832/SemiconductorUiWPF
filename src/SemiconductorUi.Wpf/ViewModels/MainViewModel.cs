@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using SemiconductorUi.Controllers;
 using SemiconductorUi.Hardware;
+using SemiconductorUi.Process;
 using SemiconductorUi.Services;
 using SemiconductorUi.Wpf.Infrastructure;
 using SemiconductorUi.Wpf.Services;
@@ -19,18 +20,17 @@ namespace SemiconductorUi.Wpf.ViewModels
     /// 메인 창(셸) 뷰모델. 원본 Form1 + Form1.Shell + Login/Hardware/Process 이벤트 핸들러 중
     /// 셸에 해당하는 부분을 옮긴 것이다. 공정 상태 값은 Core의 MainFormViewModel을 그대로 사용한다.
     /// </summary>
-    public sealed class MainViewModel : ObservableObject, IDisposable
+    public sealed class MainViewModel : ObservableObject, IDisposable, IProcessHost
     {
         private readonly IDialogService _dialogs;
         private readonly IUserRepository _users;
         private readonly DispatcherTimer _clockTimer;
+        private readonly DispatcherTimer _hardwareUiTimer;
         private readonly Dispatcher _dispatcher;
 
         private NavPage _currentPage = NavPage.Operate;
         private OperateTab _currentTab = OperateTab.Monitoring;
         private EthercatLinkState _ethercatState = EthercatLinkState.Disconnected;
-        private bool _isServoOn;
-        private bool _isHomed;
         private bool _servoBusy;
         private DateTime _now = DateTime.Now;
 
@@ -51,6 +51,9 @@ namespace SemiconductorUi.Wpf.ViewModels
             ServiceContainer.Register<ILoggerService>(Logger);
             ServiceContainer.Register<ISimulationService>(Simulation);
 
+            // 원본 Form1의 공정 진행 코드 (스케줄링, TM 단계, 챔버 공정, 하드웨어 동작)
+            Engine = new ProcessEngine(State, ethercat, HardwareManager, Simulation, this, new DispatcherTickTimer());
+
             LoginCommand = new RelayCommand(Login, () => !State.IsLoggedIn);
             LogoutCommand = new RelayCommand(Logout, () => State.IsLoggedIn);
             UserManagementCommand = new RelayCommand(OpenUserManagement, () => State.IsLoggedIn);
@@ -58,6 +61,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             DisconnectEthercatCommand = new RelayCommand(DisconnectEthercat, () => IsEthercatConnected);
             ServoOnCommand = new RelayCommand(() => _ = ServoOnAsync(), () => IsEthercatConnected && !_servoBusy);
             ServoOffCommand = new RelayCommand(ServoOff, () => IsEthercatConnected && !_servoBusy);
+            HomeCommand = new RelayCommand(() => Engine.HomeButton(), () => IsEthercatConnected && !_servoBusy);
             NavigateCommand = new RelayCommand(p => { if (p is NavPage page) CurrentPage = page; });
 
             Monitoring = new MonitoringViewModel(this, dialogs);
@@ -65,6 +69,11 @@ namespace SemiconductorUi.Wpf.ViewModels
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _clockTimer.Tick += (s, e) => Now = DateTime.Now;
             _clockTimer.Start();
+
+            // 원본 HardwareUiUpdateTimer: 하드웨어 모드에서 실제 TM 위치를 50ms마다 화면에 반영
+            _hardwareUiTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+            _hardwareUiTimer.Tick += (s, e) => Engine.OnHardwareUiTick();
+            _hardwareUiTimer.Start();
 
             State.CurrentUser = "Guest";
             State.CurrentRole = "없음";
@@ -77,6 +86,7 @@ namespace SemiconductorUi.Wpf.ViewModels
         public IEthercatDevice Ethercat { get; }
         public HardwareManager HardwareManager { get; }
         public SimulationController Simulation { get; }
+        public ProcessEngine Engine { get; }
         public LoggerService Logger { get; }
         public MonitoringViewModel Monitoring { get; }
 
@@ -231,39 +241,46 @@ namespace SemiconductorUi.Wpf.ViewModels
             : EthercatState == EthercatLinkState.Disconnected ? Res("TextSecondary")
             : Res("Danger");
 
+        /// <summary>서보 ON 상태 (원본 Form1.IsServoOn, 공정 엔진이 들고 있음)</summary>
         public bool IsServoOn
         {
-            get => _isServoOn;
+            get => Engine.ServoOn;
             set
             {
-                if (SetProperty(ref _isServoOn, value))
-                {
-                    if (!value) IsHomed = false;
-                    OnPropertyChanged(nameof(ServoStatusText));
-                    OnPropertyChanged(nameof(ServoStatusBrush));
-                }
+                if (Engine.ServoOn == value) return;
+                Engine.ServoOn = value;
+                if (!value) HardwareManager.ResetTmHardwareInitialized();
+                Engine.UpdateServoStatusLabel();
+                NotifyServo();
             }
         }
 
-        public bool IsHomed
-        {
-            get => _isHomed;
-            set
-            {
-                if (SetProperty(ref _isHomed, value)) OnPropertyChanged(nameof(ServoStatusText));
-            }
-        }
+        public bool IsHomed => HardwareManager.IsTmHardwareInitialized;
 
+        /// <summary>원본 labelServoStatus ("서보: ON | Home: 완료")를 상단 바 칩 문구로</summary>
         public string ServoStatusText
         {
             get
             {
+                if (IsEmergencyStopped) return "서보 비상정지";
                 if (!IsEthercatConnected) return "서보 미연결";
-                return $"서보 {(IsServoOn ? "ON" : "OFF")} · 원점 {(IsHomed ? "완료" : "-")}";
+                return Engine.ServoStatusText.Replace("서보: ", "서보 ").Replace(" | Home: ", " · 원점 ");
             }
         }
 
-        public Brush ServoStatusBrush => IsServoOn ? Res("Success") : Res("TextSecondary");
+        public Brush ServoStatusBrush
+        {
+            get
+            {
+                switch (Engine.ServoStatus)
+                {
+                    case ProcessEngine.ServoStatusLevel.Success: return Res("Success");
+                    case ProcessEngine.ServoStatusLevel.Warning: return Res("Warning");
+                    case ProcessEngine.ServoStatusLevel.Danger: return Res("Danger");
+                    default: return Res("TextSecondary");
+                }
+            }
+        }
 
         public string LoginStatusText => State.IsLoggedIn ? $"{State.CurrentUser}" : "Guest";
         public string UserInitial => string.IsNullOrEmpty(LoginStatusText) ? "?" : LoginStatusText.Substring(0, 1).ToUpperInvariant();
@@ -378,6 +395,7 @@ namespace SemiconductorUi.Wpf.ViewModels
         public ICommand DisconnectEthercatCommand { get; }
         public ICommand ServoOnCommand { get; }
         public ICommand ServoOffCommand { get; }
+        public ICommand HomeCommand { get; }
 
         private void ConnectEthercat()
         {
@@ -506,34 +524,10 @@ namespace SemiconductorUi.Wpf.ViewModels
             NotifyServo();
         }
 
-        /// <summary>원본 Form1.ExecuteEmergencyStop (비상정지 후 검증 예약은 공정 시퀀스 이관 단계에서 추가)</summary>
+        /// <summary>원본 Form1.ExecuteEmergencyStop (공정 엔진이 처리)</summary>
         public void ExecuteEmergencyStop(string source)
         {
-            bool servoOffSent = false;
-            if (Ethercat != null)
-            {
-                try
-                {
-                    Ethercat.EmergencyStop();
-                    servoOffSent = IsEthercatConnected;
-                }
-                catch (Exception ex)
-                {
-                    AddLog($"비상정지 서보 OFF 전송 오류: {ex.Message} - 비상 차단 스위치로 전원을 끊으세요", "ALARM");
-                }
-            }
-
-            IsServoOn = false;
-            HardwareManager.ResetTmHardwareInitialized();
-            State.HasAlarm = true;
-
-            AddLog(servoOffSent
-                ? $"비상정지 ({source}): 서보 OFF 전송, 장비 명령 차단. 진공은 유지합니다."
-                : $"비상정지 ({source}): EtherCAT 미연결 상태, 장비 명령 차단", "ALARM");
-
-            string reason = "비상정지. 알람 리셋으로 해제한 뒤 서보 ON과 원점복귀를 다시 하세요.";
-            if (Simulation.IsRunning) Simulation.Abort();
-            SetProcessState(ProcessState.Error, reason);
+            Engine.ExecuteEmergencyStop(source);
             NotifyServo();
             OnPropertyChanged(nameof(IsEmergencyStopped));
         }
@@ -554,21 +548,14 @@ namespace SemiconductorUi.Wpf.ViewModels
         /// <summary>원본 Form1.SetProcessState</summary>
         public void SetProcessState(ProcessState state, string reason = null)
         {
-            State.CurrentProcessState = state;
-            if (!string.IsNullOrWhiteSpace(reason))
-            {
-                AddLog(reason, state == ProcessState.Error ? "ALARM" : "INFO");
-            }
+            Engine.SetProcessState(state, reason);
         }
 
         private void OnSimulationTick(object sender, EventArgs e)
         {
-            // TODO(공정 시퀀스 이관 단계): 원본 TimerEventHandlers.SimulationTimer_Tick +
-            // Form1TmProcessor의 TM/챔버 진행 로직을 Core 오케스트레이터로 옮겨 여기서 호출한다.
-            if (Simulation.IsRunning && !Simulation.IsPaused)
-            {
-                Monitoring.OnTick();
-            }
+            // 원본 TimerEventHandlers.SimulationTimer_Tick
+            Engine.OnSimulationTick();
+            Monitoring.OnTick();
             OnPropertyChanged(nameof(IsEmergencyStopped));
         }
 
@@ -606,6 +593,76 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         #endregion
 
+        #region IProcessHost (공정 엔진 → 화면)
+
+        void IProcessHost.AddLog(string message, string level) => AddLog(message, level);
+
+        void IProcessHost.ShowMessage(string text, string title, MessageKind kind)
+        {
+            switch (kind)
+            {
+                case MessageKind.Error: _dialogs.Error(text, title); break;
+                case MessageKind.Warning: _dialogs.Warn(text, title); break;
+                default: _dialogs.Info(text, title); break;
+            }
+        }
+
+        bool IProcessHost.Confirm(string text, string title, bool defaultNo) => _dialogs.Confirm(text, title, defaultNo);
+
+        int? IProcessHost.PromptWaferCount(int current, int min, int max) => _dialogs.PromptWaferCount(current, min, max);
+
+        bool IProcessHost.HasHeaderAlarm() => _lastAlarm != null;
+
+        void IProcessHost.ClearHeaderAlarm() => ClearAlarmBanner();
+
+        void IProcessHost.BeginInvoke(Action action) => _dispatcher.BeginInvoke(action);
+
+        bool IProcessHost.CheckAccess() => _dispatcher.CheckAccess();
+
+        void IProcessHost.Invoke(Action action)
+        {
+            if (_dispatcher.CheckAccess()) action();
+            else _dispatcher.Invoke(action);
+        }
+
+        void IProcessHost.RunOnceAfter(int delayMs, Action action)
+        {
+            var timer = new DispatcherTimer(DispatcherPriority.Normal, _dispatcher) { Interval = TimeSpan.FromMilliseconds(delayMs) };
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                action();
+            };
+            timer.Start();
+        }
+
+        private bool _refreshQueued;
+
+        void IProcessHost.RefreshUi()
+        {
+            // 한 틱 안에서 여러 번 불리므로 모아서 한 번만 그린다
+            if (_refreshQueued) return;
+            _refreshQueued = true;
+            _dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
+            {
+                _refreshQueued = false;
+                Monitoring?.UpdateScene();
+            }));
+        }
+
+        void IProcessHost.RefreshServoStatus()
+        {
+            if (!_dispatcher.CheckAccess())
+            {
+                _dispatcher.BeginInvoke(new Action(() => ((IProcessHost)this).RefreshServoStatus()));
+                return;
+            }
+            NotifyServo();
+            RelayCommand.Refresh();
+        }
+
+        #endregion
+
         private static Brush Res(string key) => (Brush)Application.Current.FindResource(key);
 
         private static Brush Rgb(byte r, byte g, byte b)
@@ -618,6 +675,8 @@ namespace SemiconductorUi.Wpf.ViewModels
         public void Dispose()
         {
             _clockTimer.Stop();
+            _hardwareUiTimer.Stop();
+            Engine.Dispose();
             Simulation.Dispose();
             HardwareManager.Dispose();
         }
