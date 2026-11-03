@@ -22,6 +22,20 @@ namespace SemiconductorUi.Wpf.Controls
         private double currentAngleRad = Math.PI / 2, targetAngleRad = Math.PI / 2;
         private bool isSimulationMode = true;
         private readonly DispatcherTimer animationTimer;
+        private readonly System.Diagnostics.Stopwatch animationClock = new System.Diagnostics.Stopwatch();
+        private double lastAnimationSeconds;
+        private double angularVelocity;   // rad/s, 부호 포함
+        private double extensionVelocity; // factor/s, 부호 포함
+
+        // 원본과 같은 움직임: 천천히 출발해 일정 속도로 돌고, 도착 전에 감속한다.
+        private const double MaxAngularSpeed = 150.0 * Math.PI / 180.0;      // 초당 150도
+        private const double AngularAcceleration = 400.0 * Math.PI / 180.0;  // 초당² 400도
+        private const double MaxExtensionSpeed = 1.6;
+        private const double ExtensionAcceleration = 6;
+        // 6시 방향(화면 아래). 실제 로봇은 FOUP A와 FOUP B 사이 아래쪽으로 돌지 않는다.
+        private const double ForbiddenAngle = Math.PI / 2;
+        // 이 값보다 블레이드가 나와 있으면 돌지 않는다.
+        private const double RotationSafeExtension = 0.75;
         private readonly Dictionary<EquipmentRegion, Point> anchors = new Dictionary<EquipmentRegion, Point>();
         private readonly List<Rect> moduleBounds = new List<Rect>();
         private Point hubCenter;
@@ -71,7 +85,12 @@ namespace SemiconductorUi.Wpf.Controls
             if (waferDisplayColor.HasValue) waferColor = waferDisplayColor.Value;
             targetExtensionFactor = Math.Max(0.4, Math.Min(1.6, extensionFactor));
             targetAngleRad = GetBladeAngle(targetRegion, isSimulation);
-            if (!animationTimer.IsEnabled) animationTimer.Start();
+            if (!animationTimer.IsEnabled)
+            {
+                lastAnimationSeconds = 0;
+                animationClock.Restart();
+                animationTimer.Start();
+            }
             InvalidateVisual();
         }
 
@@ -312,18 +331,95 @@ namespace SemiconductorUi.Wpf.Controls
 
         private void AnimationTimer_Tick(object sender, EventArgs e)
         {
-            var diff = targetExtensionFactor - currentExtensionFactor;
-            var angleDiff = NormalizeAngle(targetAngleRad - currentAngleRad);
-            bool stillAnimating = false;
+            // 틱 간격이 들쭉날쭉해도 속도가 같도록 실제 흐른 시간으로 움직인다.
+            double now = animationClock.Elapsed.TotalSeconds;
+            double dt = Math.Min(0.05, Math.Max(0.0, now - lastAnimationSeconds));
+            lastAnimationSeconds = now;
 
-            if (Math.Abs(diff) >= 0.005) { currentExtensionFactor += diff * 0.4; stillAnimating = true; }
-            else currentExtensionFactor = targetExtensionFactor;
+            const double tolerance = 0.002;
+            double extensionRemaining = targetExtensionFactor - currentExtensionFactor;
+            double angleRemaining = GetRotationPath(currentAngleRad, targetAngleRad);
+            bool needsRotation = Math.Abs(angleRemaining) > tolerance;
 
-            if (Math.Abs(angleDiff) >= 0.005) { currentAngleRad = NormalizeAngle(currentAngleRad + angleDiff * 0.2); stillAnimating = true; }
-            else currentAngleRad = targetAngleRad;
+            // 블레이드가 나와 있으면 돌기 전에 먼저 접고, 돌아야 하는 동안에는 내밀지 않는다.
+            bool holdRotation = needsRotation && angularVelocity == 0
+                && currentExtensionFactor > RotationSafeExtension
+                && targetExtensionFactor <= RotationSafeExtension;
+            bool holdExtension = needsRotation && extensionRemaining > 0;
 
-            if (!stillAnimating) animationTimer.Stop();
+            bool extensionMoving = false;
+            if (holdExtension)
+            {
+                extensionVelocity = 0;
+            }
+            else
+            {
+                extensionMoving = Step(ref currentExtensionFactor, ref extensionVelocity, extensionRemaining,
+                    MaxExtensionSpeed, ExtensionAcceleration, dt, tolerance);
+            }
+
+            bool rotating = false;
+            if (!holdRotation)
+            {
+                double angle = currentAngleRad;
+                rotating = Step(ref angle, ref angularVelocity, angleRemaining,
+                    MaxAngularSpeed, AngularAcceleration, dt, tolerance);
+                currentAngleRad = rotating ? NormalizeAngle(angle) : targetAngleRad;
+            }
+
+            if (!extensionMoving && !rotating && !holdRotation && !holdExtension)
+            {
+                animationTimer.Stop();
+                animationClock.Stop();
+            }
             InvalidateVisual();
+        }
+
+        /// <summary>가속 → 일정 속도 → 감속으로 남은 거리만큼 한 틱 움직인다. 끝났으면 false.</summary>
+        internal static bool Step(ref double value, ref double velocity, double remaining, double maxSpeed, double acceleration, double dt, double tolerance)
+        {
+            if (Math.Abs(remaining) <= tolerance)
+            {
+                value += remaining;
+                velocity = 0;
+                return false;
+            }
+
+            double direction = Math.Sign(remaining);
+            double brakeSpeed = Math.Sqrt(2.0 * acceleration * Math.Abs(remaining));
+            double desired = direction * Math.Min(maxSpeed, brakeSpeed);
+            double maxChange = acceleration * dt;
+            velocity += Math.Max(-maxChange, Math.Min(maxChange, desired - velocity));
+
+            double move = velocity * dt;
+            if (Math.Sign(move) != (int)direction && move != 0)
+            {
+                // 목표가 반대쪽으로 바뀐 경우: 감속만 하고 기다린다
+                value += move;
+                return true;
+            }
+            if (Math.Abs(move) >= Math.Abs(remaining))
+            {
+                value += remaining;
+                velocity = 0;
+                return false;
+            }
+            value += move;
+            return true;
+        }
+
+        /// <summary>
+        /// 현재 각도에서 목표 각도까지 돌 양(부호 포함). 짧은 쪽이 6시 방향을 지나가면 반대쪽으로 돈다.
+        /// </summary>
+        internal static double GetRotationPath(double from, double to)
+        {
+            double shortest = NormalizeAngle(to - from);
+            double toForbidden = NormalizeAngle(ForbiddenAngle - from);
+            bool crosses = shortest > 0
+                ? toForbidden > 0.0001 && toForbidden < shortest
+                : toForbidden < -0.0001 && toForbidden > shortest;
+            if (!crosses) return shortest;
+            return shortest > 0 ? shortest - 2 * Math.PI : shortest + 2 * Math.PI;
         }
 
         private static double NormalizeAngle(double angle)

@@ -28,6 +28,7 @@ namespace SnapshotTool
             failures += Try(() => SnapCanvas(Path.Combine(outDir, "canvas-idle-1000x560.png"), 1000, 560, Idle()));
             failures += Try(() => SnapCanvas(Path.Combine(outDir, "canvas-transfer-1400x720.png"), 1400, 720, Transfer()));
             failures += Try(() => SnapCanvas(Path.Combine(outDir, "canvas-narrow-820x560.png"), 820, 560, Transfer()));
+            failures += Try(() => SnapCanvas(Path.Combine(outDir, "canvas-foup-1400x720.png"), 1400, 720, PickFromFoup()));
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-1600x900.png")));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
@@ -45,6 +46,17 @@ namespace SnapshotTool
             s.LampYellow = Color.FromRgb(218, 165, 32);
             s.FoupA.WaferCount = 5; s.FoupA.Capacity = 5;
             s.FoupB.WaferCount = 0; s.FoupB.Capacity = 5;
+            return s;
+        }
+
+        /// <summary>FOUP A에서 웨이퍼를 꺼내는 순간: 블레이드가 로드포트 판 아래로 들어가 보여야 한다.</summary>
+        private static EquipmentScene PickFromFoup()
+        {
+            var s = Transfer();
+            s.Chambers[EquipmentRegion.ChamberB].ValveOpen = 0;
+            s.TmTarget = EquipmentRegion.FoupA;
+            s.TmCarrying = false;
+            s.TmExtension = 1.3;
             return s;
         }
 
@@ -80,7 +92,7 @@ namespace SnapshotTool
             canvas.Measure(new Size(w, h));
             canvas.Arrange(new Rect(0, 0, w, h));
             canvas.UpdateLayout();
-            Pump(400); // TM 회전/전진 애니메이션이 끝나도록
+            Pump(3000); // TM 회전(가속/감속)과 전진 애니메이션이 끝나도록
             canvas.UpdateLayout();
             Save(canvas, w, h, path);
         }

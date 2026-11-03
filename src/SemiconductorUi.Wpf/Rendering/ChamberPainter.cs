@@ -195,7 +195,7 @@ namespace SemiconductorUi.Wpf.Rendering
             DrawLampItem(g, x, size.Height, green, "진행");
         }
 
-        private static void DrawSignalTower(Gdi g, Rect area, Color red, Color yellow, Color green)
+        public static void DrawSignalTower(Gdi g, Rect area, Color red, Color yellow, Color green)
         {
             const double poleHeight = 4;
             double segment = (area.Height - poleHeight - 2) / 3;

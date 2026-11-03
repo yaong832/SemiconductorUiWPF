@@ -45,7 +45,9 @@ namespace SemiconductorUi.Wpf.Controls
             var size = RenderSize;
             if (size.Width <= 40 || size.Height <= 40) return;
             var g = new Gdi(dc, this);
-            g.Clear(Palette.CanvasBack, size);
+            // 원본 FoupVisualizationControl.Backdrop: 배경을 칠하지 않아 FOUP 쪽으로 나온 TM 블레이드가
+            // 로드포트 판 아래로 들어가 보인다. 투명으로 칠해 빈 곳도 클릭은 받는다.
+            g.Clear(Colors.Transparent, size);
 
             var state = g.Save();
             g.TranslateTransform(size.Width / 2, size.Height / 2);
