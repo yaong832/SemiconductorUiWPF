@@ -95,34 +95,37 @@
         <Setter Property="Margin" Value="0,0,0,8"/>
     </Style>
 
-    <!-- 왼쪽 세로 메뉴 항목 -->
-    <Style x:Key="NavItem" TargetType="RadioButton">
+    <!-- 하단 메뉴 줄 버튼 (원본 ShellNavPainter.StyleNavBarItem: 테두리 있는 가로 버튼, 그림 왼쪽 + 글자 오른쪽) -->
+    <Style x:Key="NavBarItem" TargetType="RadioButton">
         <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="FontSize" Value="12"/>
-        <Setter Property="Foreground" Value="#C9D3E2"/>
-        <Setter Property="Height" Value="64"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+        <Setter Property="Width" Value="128"/>
+        <Setter Property="Margin" Value="0,0,8,0"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="bd" Background="Transparent" Margin="6,3" CornerRadius="6">
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock x:Name="icon" Text="{TemplateBinding Tag}" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="20" HorizontalAlignment="Center" Margin="0,0,0,4"/>
-                            <ContentPresenter HorizontalAlignment="Center"/>
+                    <Border x:Name="bd" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}"
+                            BorderThickness="1" CornerRadius="8">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="{TemplateBinding Tag}" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <ContentPresenter VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="#2A3748"/>
+                            <Setter TargetName="bd" Property="Background" Value="{StaticResource SurfaceAlt}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="bd" Property="Background" Value="{StaticResource Primary}"/>
-                            <Setter Property="Foreground" Value="White"/>
+                            <Setter TargetName="bd" Property="Background" Value="#E8EFFA"/>
+                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
+                            <Setter Property="Foreground" Value="{StaticResource Primary}"/>
+                            <Setter Property="FontWeight" Value="Bold"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.4"/>
+                            <Setter Property="Foreground" Value="{StaticResource ButtonDisabledText}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -155,6 +158,13 @@
     </Style>
 
     <!-- 상단 바 상태 칩 -->
+    <!-- 상단 바 버튼 (원본 AddShellBarButton: 높이 28) -->
+    <Style x:Key="BarButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
     <Style x:Key="Chip" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource SurfaceAlt}"/>
         <Setter Property="BorderBrush" Value="{StaticResource Border}"/>

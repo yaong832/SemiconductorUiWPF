@@ -4,126 +4,192 @@
         xmlns:vm="clr-namespace:SemiconductorUi.Wpf.ViewModels"
         xmlns:views="clr-namespace:SemiconductorUi.Wpf.Views"
         xmlns:conv="clr-namespace:SemiconductorUi.Wpf.Infrastructure"
-        Title="Semiconductor UI" Width="1600" Height="940" MinWidth="1280" MinHeight="760"
+        Title="웨이퍼 이송 장비 - SemiconductorUi" Width="1600" Height="940" MinWidth="1280" MinHeight="760"
         WindowStartupLocation="CenterScreen" WindowState="Maximized"
         Background="{StaticResource AppBack}" FontFamily="{StaticResource UiFont}">
     <Window.Resources>
         <conv:EnumEqualsConverter x:Key="EnumEquals"/>
         <conv:EnumEqualsConverter x:Key="EnumVisible" ToVisibility="True"/>
     </Window.Resources>
+
+    <!-- SEMI E95 배치 (원본 Form1.Shell): 맨 위 타이틀 줄 / 본문(작은 탭 + 내용) / 맨 아래 메뉴 줄 -->
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="56"/>
+            <RowDefinition Height="60"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="64"/>
         </Grid.RowDefinitions>
 
-        <!-- 상단 바 (원본 Controls/ShellTopBar) -->
+        <!-- 타이틀 줄 (원본 Controls/ShellTopBar) -->
         <Border Grid.Row="0" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1">
-            <DockPanel Margin="16,0" LastChildFill="False">
-                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Semiconductor UI" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
-                    <Border Margin="16,0,0,0" CornerRadius="12" Padding="10,3" Background="{Binding StatePillBackground}" VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="8" Height="8" Fill="{Binding StatePillDot}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBlock Text="{Binding StatePillText}" Foreground="{Binding StatePillForeground}" FontWeight="Bold"/>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-                <TextBlock DockPanel.Dock="Right" Text="{Binding ClockText}" Foreground="{StaticResource TextSecondary}"
-                           VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold"/>
-
-                <Border DockPanel.Dock="Right" Style="{StaticResource Chip}" Margin="12,0,0,0" MaxWidth="360">
-                    <TextBlock Text="{Binding AlarmText}" Foreground="{Binding AlarmBrush}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                               ToolTip="{Binding AlarmText}"/>
-                </Border>
-
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                    <Border Style="{StaticResource Chip}">
-                        <TextBlock Text="{Binding ServoStatusText}" Foreground="{Binding ServoStatusBrush}" FontWeight="SemiBold"/>
-                    </Border>
-                    <Button Content="서보 ON" Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" Command="{Binding ServoOnCommand}"/>
-                    <Button Content="서보 OFF" Style="{StaticResource SecondaryButton}" Margin="4,0,0,0" Command="{Binding ServoOffCommand}"/>
-                </StackPanel>
-
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Style="{StaticResource Chip}">
-                        <TextBlock Text="{Binding EthercatStatusText}" Foreground="{Binding EthercatStatusBrush}" FontWeight="SemiBold"/>
-                    </Border>
-                    <Button Content="연결" Style="{StaticResource SecondaryButton}" Margin="6,0,0,0" Command="{Binding ConnectEthercatCommand}"/>
-                    <Button Content="해제" Style="{StaticResource SecondaryButton}" Margin="4,0,0,0" Command="{Binding DisconnectEthercatCommand}"/>
-                </StackPanel>
-            </DockPanel>
-        </Border>
-
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="100"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- 왼쪽 세로 메뉴 (원본 ShellNavPainter) -->
-            <Border Grid.Column="0" Background="#1E2836">
-                <DockPanel>
-                    <!-- 사용자 카드 -->
-                    <StackPanel DockPanel.Dock="Bottom" Margin="6,6,6,10">
-                        <TextBlock Text="{Binding LoginStatusText}" Foreground="White" FontWeight="Bold" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding RoleText}" Foreground="#9AA7B8" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,6"/>
-                        <Button Content="로그인" Style="{StaticResource PrimaryButton}" Padding="4,5" Margin="0,2" Command="{Binding LoginCommand}"/>
-                        <Button Content="로그아웃" Style="{StaticResource SecondaryButton}" Padding="4,5" Margin="0,2" Command="{Binding LogoutCommand}"/>
-                        <Button Content="사용자 관리" Style="{StaticResource SecondaryButton}" Padding="4,5" Margin="0,2" FontSize="11" Command="{Binding UserManagementCommand}"/>
-                    </StackPanel>
-                    <RadioButton DockPanel.Dock="Bottom" Style="{StaticResource NavItem}" Content="시스템" Tag="&#xE770;"
-                                 IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.System}}"/>
-                    <StackPanel Margin="0,8,0,0">
-                        <RadioButton Style="{StaticResource NavItem}" Content="운전" Tag="&#xE768;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.Operate}}"/>
-                        <RadioButton Style="{StaticResource NavItem}" Content="레시피" Tag="&#xE8A5;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.Recipe}}"/>
-                        <RadioButton Style="{StaticResource NavItem}" Content="유지보수" Tag="&#xE90F;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.Maintenance}}"/>
-                        <RadioButton Style="{StaticResource NavItem}" Content="설정" Tag="&#xE713;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.Config}}"/>
-                        <RadioButton Style="{StaticResource NavItem}" Content="추이" Tag="&#xE9D2;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.Trend}}"/>
-                        <RadioButton Style="{StaticResource NavItem}" Content="보고서" Tag="&#xE9F9;"
-                                     IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.Report}}"/>
-                    </StackPanel>
-                </DockPanel>
-            </Border>
-
-            <!-- 본문 -->
-            <Grid Grid.Column="1" Margin="6,0,4,4">
-                <!-- 운전 화면: 작은 탭 + 탭 내용 -->
-                <Grid Visibility="{Binding IsOperatePage, Converter={StaticResource BoolToVisibility}}">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="46"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
-                        <RadioButton Style="{StaticResource SubTab}" Content="모니터링"
-                                     IsChecked="{Binding CurrentTab, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:OperateTab.Monitoring}}"/>
-                        <RadioButton Style="{StaticResource SubTab}" Content="검증"
-                                     IsChecked="{Binding CurrentTab, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:OperateTab.Verification}}"/>
-                        <RadioButton Style="{StaticResource SubTab}" Content="이송"
-                                     IsChecked="{Binding CurrentTab, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:OperateTab.Transfer}}"/>
-                    </StackPanel>
-                    <Border Grid.Row="1" Background="{StaticResource Surface}" CornerRadius="0,6,6,6">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- 장비 이름 + 지금 보는 화면 -->
+                    <Border Width="30" Height="30" CornerRadius="7" Background="{StaticResource Primary}" Margin="20,0,10,0">
                         <Grid>
-                            <views:MonitoringView DataContext="{Binding Monitoring}"
-                                                  Visibility="{Binding DataContext.CurrentTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Monitoring}}"/>
-                            <views:PlaceholderView Title="검증"
-                                                   Visibility="{Binding CurrentTab, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Verification}}"/>
-                            <views:PlaceholderView Title="이송"
-                                                   Visibility="{Binding CurrentTab, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Transfer}}"/>
+                            <Ellipse Width="14" Height="14" Stroke="White" StrokeThickness="1.8"/>
+                            <Rectangle Width="8" Height="1.4" Fill="#96FFFFFF"/>
+                            <Rectangle Width="1.4" Height="8" Fill="#96FFFFFF"/>
                         </Grid>
                     </Border>
-                </Grid>
+                    <StackPanel Width="176" VerticalAlignment="Center">
+                        <TextBlock Text="웨이퍼 이송 장비" FontSize="14.5" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"/>
+                        <TextBlock Text="{Binding ViewTitle}" FontSize="11" Foreground="{StaticResource Primary}" Margin="1,2,0,0"/>
+                    </StackPanel>
+                    <Rectangle Width="1" Height="27" Fill="{StaticResource Border}"/>
 
-                <!-- 그 밖의 메뉴: 4단계에서 화면 이관 -->
-                <views:PlaceholderView Margin="0,10,0,0" Title="{Binding CurrentPageTitle}"
-                                       Visibility="{Binding IsOperatePage, Converter={StaticResource EnumVisible}, ConverterParameter=False}"/>
+                    <!-- 큰 상태 표시 (가장 긴 글자 자리를 잡아 두어 옆 로그인 줄이 움직이지 않음) -->
+                    <Grid Margin="18,0,14,0" VerticalAlignment="Center">
+                        <TextBlock Text="공정 진행 중" FontSize="14.5" FontWeight="Bold" Margin="32,0,14,0" Visibility="Hidden"/>
+                        <Border CornerRadius="17" Height="34" Background="{Binding StatePillBackground}" HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal" Margin="15,0,14,0" VerticalAlignment="Center">
+                                <Ellipse Width="10" Height="10" Fill="{Binding StatePillDot}" Margin="0,0,7,0"/>
+                                <TextBlock Text="{Binding StatePillText}" Foreground="{Binding StatePillForeground}" FontSize="14.5" FontWeight="Bold"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <Rectangle Width="1" Height="27" Fill="{StaticResource Border}" Margin="0,0,7,0"/>
+
+                    <!-- 로그인 사용자 + 로그인/로그아웃/사용자 관리 (SEMI E95: 타이틀 줄에 로그인) -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Width="92">
+                        <Grid Width="30" Height="30" Margin="1,0,8,0">
+                            <Ellipse>
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="{StaticResource SurfaceAlt}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding State.IsLoggedIn}" Value="True">
+                                                <Setter Property="Fill" Value="#E8EFFA"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Text="{Binding UserInitial}" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondary}"/>
+                        </Grid>
+                        <StackPanel VerticalAlignment="Center" Width="53">
+                            <TextBlock Text="{Binding LoginStatusText}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis"
+                                       Foreground="{StaticResource TextPrimary}"/>
+                            <TextBlock Text="{Binding RoleText}" FontSize="10.5" TextTrimming="CharacterEllipsis" Foreground="{StaticResource TextSecondary}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <Button Content="로그인" Style="{StaticResource BarButton}" Width="64" Margin="6,0,0,0" Command="{Binding LoginCommand}"/>
+                    <Button Content="로그아웃" Style="{StaticResource BarButton}" Width="76" Margin="4,0,0,0" Command="{Binding LogoutCommand}"/>
+                    <Button Content="사용자 관리" Style="{StaticResource BarButton}" Width="92" Margin="4,0,0,0" Command="{Binding UserManagementCommand}"/>
+                </StackPanel>
+
+                <!-- 오른쪽: 연결 · 서보 · 알람 · 시계 · 3색 램프 -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <Border Style="{StaticResource Chip}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Fill="{Binding EthercatStatusBrush}" Margin="0,0,6,0"/>
+                            <TextBlock Text="{Binding EthercatStatusText}" Foreground="{StaticResource TextPrimary}"/>
+                        </StackPanel>
+                    </Border>
+                    <Button Content="연결" Style="{StaticResource BarButton}" Width="52" Margin="6,0,0,0" Command="{Binding ConnectEthercatCommand}"/>
+                    <Button Content="해제" Style="{StaticResource BarButton}" Width="52" Margin="4,0,0,0" Command="{Binding DisconnectEthercatCommand}"/>
+                    <Rectangle Width="1" Height="27" Fill="{StaticResource Border}" Margin="12,0,0,0"/>
+
+                    <Border Style="{StaticResource Chip}" Margin="12,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Fill="{Binding ServoStatusBrush}" Margin="0,0,6,0"/>
+                            <TextBlock Text="{Binding ServoStatusText}" Foreground="{StaticResource TextPrimary}"/>
+                        </StackPanel>
+                    </Border>
+                    <Button Content="서보 ON" Style="{StaticResource BarButton}" Width="68" Margin="6,0,0,0" Command="{Binding ServoOnCommand}"/>
+                    <Button Content="서보 OFF" Style="{StaticResource BarButton}" Width="72" Margin="4,0,0,0" Command="{Binding ServoOffCommand}"/>
+                    <Rectangle Width="1" Height="27" Fill="{StaticResource Border}" Margin="12,0,0,0"/>
+
+                    <Border Style="{StaticResource Chip}" Margin="12,0,0,0" MaxWidth="260">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="8" Height="8" Fill="{Binding AlarmBrush}" Margin="0,0,6,0"/>
+                            <TextBlock Text="{Binding AlarmText}" Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding AlarmText}"/>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="{Binding ClockText}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"
+                               Margin="14,0,0,0" FontWeight="SemiBold"/>
+                    <!-- 신호탑 램프는 장비 시각화 단계에서 추가 -->
+                </StackPanel>
             </Grid>
+        </Border>
+
+        <!-- 본문 (원본 tableShellContent: Padding 10,0,6,6) -->
+        <Grid Grid.Row="1" Margin="10,0,6,6">
+            <!-- 운전 화면: 작은 탭 + 탭 내용 -->
+            <Grid Visibility="{Binding IsOperatePage, Converter={StaticResource BoolToVisibility}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="46"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                    <RadioButton Style="{StaticResource SubTab}" Content="모니터링"
+                                 IsChecked="{Binding CurrentTab, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:OperateTab.Monitoring}}"/>
+                    <RadioButton Style="{StaticResource SubTab}" Content="검증"
+                                 IsChecked="{Binding CurrentTab, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:OperateTab.Verification}}"/>
+                    <RadioButton Style="{StaticResource SubTab}" Content="이송"
+                                 IsChecked="{Binding CurrentTab, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:OperateTab.Transfer}}"/>
+                </StackPanel>
+                <Border Grid.Row="1" Background="{StaticResource Surface}" CornerRadius="0,6,6,6">
+                    <Grid>
+                        <views:MonitoringView DataContext="{Binding Monitoring}"
+                                              Visibility="{Binding DataContext.CurrentTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Monitoring}}"/>
+                        <views:PlaceholderView Title="검증"
+                                               Visibility="{Binding CurrentTab, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Verification}}"/>
+                        <views:PlaceholderView Title="이송"
+                                               Visibility="{Binding CurrentTab, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Transfer}}"/>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- 그 밖의 메뉴: 이후 단계에서 화면 이관 -->
+            <views:PlaceholderView Margin="0,10,0,0" Title="{Binding CurrentPageTitle}"
+                                   Visibility="{Binding IsOperatePage, Converter={StaticResource EnumVisible}, ConverterParameter=False}"/>
         </Grid>
+
+        <!-- 맨 아래 메뉴 줄 (원본 BuildShellBottomBar): 화면 메뉴 / 현재 상태 / 시스템 -->
+        <Border Grid.Row="2" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0">
+            <Grid Margin="16,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <RadioButton Style="{StaticResource NavBarItem}" Content="운전" Tag="&#xE768;"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.Operate}}"/>
+                    <RadioButton Style="{StaticResource NavBarItem}" Content="레시피" Tag="&#xE8A5;"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.Recipe}}"/>
+                    <RadioButton Style="{StaticResource NavBarItem}" Content="유지보수" Tag="&#xE90F;"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.Maintenance}}"/>
+                    <RadioButton Style="{StaticResource NavBarItem}" Content="설정" Tag="&#xE713;"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.Config}}"/>
+                    <RadioButton Style="{StaticResource NavBarItem}" Content="추이" Tag="&#xE9D2;"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.Trend}}"/>
+                    <RadioButton Style="{StaticResource NavBarItem}" Content="보고서" Tag="&#xE9F9;"
+                                 IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.Report}}"/>
+                </StackPanel>
+
+                <!-- 현재 상태 한 줄 (원본 ShellStatusLine) -->
+                <Border Grid.Column="1" Margin="10,0" CornerRadius="8" Background="{StaticResource SurfaceAlt}"
+                        BorderBrush="{StaticResource Border}" BorderThickness="1">
+                    <StackPanel VerticalAlignment="Center" Margin="14,0">
+                        <TextBlock Text="현재 상태" FontSize="10.5" Foreground="{StaticResource TextSecondary}"/>
+                        <TextBlock Text="{Binding StatusLineText}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                </Border>
+
+                <RadioButton Grid.Column="2" Style="{StaticResource NavBarItem}" Margin="0" Content="시스템" Tag="&#xE770;"
+                             IsChecked="{Binding CurrentPage, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:NavPage.System}}"/>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

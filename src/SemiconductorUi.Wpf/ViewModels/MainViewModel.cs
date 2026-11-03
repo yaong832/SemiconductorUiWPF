@@ -93,6 +93,7 @@ namespace SemiconductorUi.Wpf.ViewModels
                 {
                     OnPropertyChanged(nameof(IsOperatePage));
                     OnPropertyChanged(nameof(CurrentPageTitle));
+                    OnPropertyChanged(nameof(ViewTitle));
                 }
             }
         }
@@ -119,8 +120,29 @@ namespace SemiconductorUi.Wpf.ViewModels
         public OperateTab CurrentTab
         {
             get => _currentTab;
-            set => SetProperty(ref _currentTab, value);
+            set
+            {
+                if (SetProperty(ref _currentTab, value)) OnPropertyChanged(nameof(ViewTitle));
+            }
         }
+
+        /// <summary>장비 이름 아래 작은 글자: 지금 보는 화면 (원본 Form1.Shell.GetShellViewTitle, 예: "운전 · 모니터링")</summary>
+        public string ViewTitle
+        {
+            get
+            {
+                if (CurrentPage != NavPage.Operate) return CurrentPageTitle;
+                switch (CurrentTab)
+                {
+                    case OperateTab.Verification: return "운전 · 검증";
+                    case OperateTab.Transfer: return "운전 · 이송";
+                    default: return "운전 · 모니터링";
+                }
+            }
+        }
+
+        /// <summary>하단 메뉴 줄 가운데 "현재 상태" (원본 labelFoupSummaryInfo: 교환 상태 | 대기열)</summary>
+        public string StatusLineText => $"{State.CurrentFoupExchangeState} | {State.CurrentFoupQueueInfo}";
 
         public ICommand NavigateCommand { get; }
 
@@ -244,6 +266,7 @@ namespace SemiconductorUi.Wpf.ViewModels
         public Brush ServoStatusBrush => IsServoOn ? Res("Success") : Res("TextSecondary");
 
         public string LoginStatusText => State.IsLoggedIn ? $"{State.CurrentUser}" : "Guest";
+        public string UserInitial => string.IsNullOrEmpty(LoginStatusText) ? "?" : LoginStatusText.Substring(0, 1).ToUpperInvariant();
         public string RoleText => State.IsLoggedIn ? State.CurrentRole : "로그인 필요";
         public bool IsAdmin => State.IsLoggedIn && State.CurrentRole == "관리자";
 
@@ -557,9 +580,14 @@ namespace SemiconductorUi.Wpf.ViewModels
                 case nameof(CoreState.CurrentUser):
                 case nameof(CoreState.CurrentRole):
                     OnPropertyChanged(nameof(LoginStatusText));
+                    OnPropertyChanged(nameof(UserInitial));
                     OnPropertyChanged(nameof(RoleText));
                     OnPropertyChanged(nameof(IsAdmin));
                     RelayCommand.Refresh();
+                    break;
+                case nameof(CoreState.CurrentFoupExchangeState):
+                case nameof(CoreState.CurrentFoupQueueInfo):
+                    OnPropertyChanged(nameof(StatusLineText));
                     break;
                 case nameof(CoreState.CurrentProcessState):
                     NotifyPill();
