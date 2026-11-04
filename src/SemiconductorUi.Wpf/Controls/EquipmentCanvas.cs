@@ -34,6 +34,9 @@ namespace SemiconductorUi.Wpf.Controls
         public static readonly RoutedEvent RegionClickedEvent = EventManager.RegisterRoutedEvent(
             nameof(RegionClicked), RoutingStrategy.Bubble, typeof(EventHandler<RegionClickedEventArgs>), typeof(EquipmentCanvas));
 
+        public static readonly RoutedEvent RegionRightClickedEvent = EventManager.RegisterRoutedEvent(
+            nameof(RegionRightClicked), RoutingStrategy.Bubble, typeof(EventHandler<RegionClickedEventArgs>), typeof(EquipmentCanvas));
+
         public EquipmentCanvas()
         {
             _children = new VisualCollection(this)
@@ -60,12 +63,20 @@ namespace SemiconductorUi.Wpf.Controls
             remove => RemoveHandler(RegionClickedEvent, value);
         }
 
+        /// <summary>챔버/FOUP 오른쪽 클릭 (원본: 시뮬레이션 시험 알람 메뉴)</summary>
+        public event EventHandler<RegionClickedEventArgs> RegionRightClicked
+        {
+            add => AddHandler(RegionRightClickedEvent, value);
+            remove => RemoveHandler(RegionRightClickedEvent, value);
+        }
+
         protected override int VisualChildrenCount => _children.Count;
         protected override Visual GetVisualChild(int index) => _children[index];
 
         private void Hook(UIElement element, EquipmentRegion region)
         {
             element.MouseLeftButtonUp += (s, e) => RaiseEvent(new RegionClickedEventArgs(RegionClickedEvent, this, region));
+            element.MouseRightButtonUp += (s, e) => RaiseEvent(new RegionClickedEventArgs(RegionRightClickedEvent, this, region));
         }
 
         private static void OnSceneChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

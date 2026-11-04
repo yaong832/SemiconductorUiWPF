@@ -37,6 +37,7 @@ namespace SnapshotTool
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-running-1600x900.png"), 75));
             // 챔버/FOUP 상세 창 (공정 중)
             failures += Try(() => SnapUnitDetail(outDir, 75, "PMA", "PMB", "FOUP A", "FOUP B"));
+            failures += Try(() => SnapConfig(Path.Combine(outDir, "config.png")));
             failures += Try(() => SnapRecipeManager(Path.Combine(outDir, "recipe-manager.png")));
             failures += Try(() => SnapUserManagement(Path.Combine(outDir, "user-management.png")));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
@@ -155,6 +156,14 @@ namespace SnapshotTool
             }
         }
 
+        private static void SnapConfig(string path)
+        {
+            var model = new ConfigViewModel(new AutoDialogs(), ConfigViewModel.CreateDefault(), t => true);
+            // 경고가 알람보다 큰 칸이 빨갛게 보이는지
+            model.Gas.Fields[0].Value = 20;
+            SnapDialog(new SemiconductorUi.Wpf.Views.ConfigWindow(model), model, path);
+        }
+
         private static void SnapUserManagement(string path)
         {
             var repo = new SemiconductorUi.Repositories.UserRepositoryImpl(Path.GetTempFileName());
@@ -244,6 +253,7 @@ namespace SnapshotTool
         public void ShowUserManagement(UserManagementViewModel model) { }
         public bool TryLogin(out string username, out string password) { username = null; password = null; return false; }
         public void ShowUnitDetail(UnitDetailViewModel detail) { }
+        public void ShowConfig(ConfigViewModel model) { }
         public void ShowRecipeManager(RecipeManagerViewModel model) { }
     }
 

@@ -214,7 +214,17 @@ namespace SemiconductorUi.Wpf.ViewModels
         /// <summary>원본 CloseUnitDetail (로그아웃 때)</summary>
         public void CloseUnitDetail() => UnitDetail.Close();
 
-        private static string ToUnitKey(EquipmentRegion region)
+        public bool CanInjectTestAlarm(string unitKey) => State.IsLoggedIn && (Engine?.CanInjectSimulationTestAlarm(unitKey) ?? false);
+
+        /// <summary>시뮬레이션 시험 알람 (원본 InjectSimulationTestAlarm)</summary>
+        public void InjectTestAlarm(string unitKey)
+        {
+            if (!CanInjectTestAlarm(unitKey)) return;
+            Engine.InjectSimulationTestAlarm(unitKey);
+            AfterCommand();
+        }
+
+        internal static string ToUnitKey(EquipmentRegion region)
         {
             switch (region)
             {
