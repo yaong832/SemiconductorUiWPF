@@ -36,6 +36,12 @@ namespace SemiconductorUi.Wpf.Services
             return window.ShowDialog() == true ? window.Value : (int?)null;
         }
 
+        public void ShowUserManagement(UserManagementViewModel model)
+        {
+            var window = new UserManagementWindow(model) { Owner = Owner };
+            window.ShowDialog();
+        }
+
         public bool TryLogin(out string username, out string password)
         {
             var window = new LoginWindow { Owner = Owner };
