@@ -378,6 +378,8 @@ namespace SemiconductorUi.Process
             StatusDoorText = closedDoors == 0 ? "문 상태: 모두 개방" : $"문 상태: {closedDoors}개 닫힘";
             StatusProcessDetail = $"{StatusProcessText} | 완료 {foupManager.GetFoupBCount()}/{AppSettings.MaxFoupCapacity}";
 
+            // 챔버 환경 값과 경고/알람 판정 (원본 UpdatePmSummary → UpdatePmEnvironmentTable)
+            UpdateChamberEnvironments();
             UpdateChamberProcessLamps();
             Host.RefreshUi();
         }

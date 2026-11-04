@@ -209,25 +209,6 @@ namespace SemiconductorUi.Process
                     : "Released";
         }
 
-        /// <summary>
-        /// 챔버 환경 표 (원본 PmStatusPanel.GetEnvironmentRows). 이름, PV, SV, 단위.
-        /// SV는 레시피를 적용해야, PV는 그 챔버가 공정 중이어야 나온다.
-        /// 레시피 적용과 환경 값은 아직 이관 전이라 지금은 모두 "-"다.
-        /// </summary>
-        public string[][] GetEnvironmentRows(string unitKey)
-        {
-            string[] Row(string name, string unit) => new[] { name, "-", "-", unit };
-            return new[]
-            {
-                Row("NF3", "sccm"),
-                Row("O2", "sccm"),
-                Row("CF4", "sccm"),
-                Row("압력", "Torr"),
-                Row("RF", "W"),
-                Row("온도", "°C"),
-            };
-        }
-
         /// <summary>상세 창 내용 (원본 Form1.RefreshUnitDetail의 분기)</summary>
         public UnitDetailContent BuildUnitDetail(string unitKey)
         {

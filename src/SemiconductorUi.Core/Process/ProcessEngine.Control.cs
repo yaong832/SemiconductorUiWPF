@@ -143,7 +143,8 @@ namespace SemiconductorUi.Process
         private void CompleteStartSimulation()
         {
             InitializeSimulationStateCore();
-            // 원본은 여기서 환경 텔레메트리(PV 값)를 초기화한다. WPF는 PM 상세 화면 이관(5단계) 때 연결한다.
+            // 공정 시작 시 환경 텔레메트리 초기화 (PV 값이 이제부터 생성됨)
+            InitializeEnvironmentTelemetry();
             // 이전 완료 수량을 기준선으로 저장하여 현재 배치 완료 판정을 분리
             FoupBCompletedBaseline = foupManager?.GetFoupBCount() ?? 0;
             int targetLoadCount = GetEffectiveWaferTarget();

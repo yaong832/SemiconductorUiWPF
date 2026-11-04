@@ -37,6 +37,7 @@ namespace SnapshotTool
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-running-1600x900.png"), 75));
             // 챔버/FOUP 상세 창 (공정 중)
             failures += Try(() => SnapUnitDetail(outDir, 75, "PMA", "PMB", "FOUP A", "FOUP B"));
+            failures += Try(() => SnapRecipeManager(Path.Combine(outDir, "recipe-manager.png")));
             failures += Try(() => SnapUserManagement(Path.Combine(outDir, "user-management.png")));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
@@ -113,6 +114,10 @@ namespace SnapshotTool
                 vm.State.IsLoggedIn = true;
                 vm.State.CurrentUser = "operator";
                 vm.State.CurrentRole = "운영자";
+                // 첫 레시피를 적용해 환경 표에 SV가 나오게 한다
+                var first = SemiconductorUi.Repositories.RecipeRepository.LoadAll().OrderBy(r => r.Name).First();
+                vm.Monitoring.SelectedRecipeName = first.Name;
+                vm.Monitoring.ApplyRecipeCommand.Execute(null);
                 vm.Engine.ToggleFoupMountButton();
                 vm.Engine.WaferLoadingButton();
                 vm.Engine.StartButton();
@@ -158,7 +163,19 @@ namespace SnapshotTool
             repo.SaveAll(users);
             var model = new UserManagementViewModel(new AutoDialogs(), repo, "admin");
             model.Selected = model.Users.FirstOrDefault(u => u.Username == "operator1");
-            var window = new SemiconductorUi.Wpf.Views.UserManagementWindow(model);
+            SnapDialog(new SemiconductorUi.Wpf.Views.UserManagementWindow(model), model, path);
+        }
+
+        private static void SnapRecipeManager(string path)
+        {
+            var model = new RecipeManagerViewModel(new AutoDialogs(), SemiconductorUi.Repositories.RecipeRepository.LoadAll, list => { });
+            model.Selected = model.Items.FirstOrDefault();
+            SnapDialog(new SemiconductorUi.Wpf.Views.RecipeManagerWindow(model), model, path);
+        }
+
+        /// <summary>모달 창을 띄우지 않고 내용만 떼어 창 크기로 찍는다.</summary>
+        private static void SnapDialog(Window window, object model, string path)
+        {
             var root = (FrameworkElement)window.Content;
             window.Content = null;
             var host = new Border { Background = window.Background, Child = root, DataContext = model };
@@ -227,6 +244,7 @@ namespace SnapshotTool
         public void ShowUserManagement(UserManagementViewModel model) { }
         public bool TryLogin(out string username, out string password) { username = null; password = null; return false; }
         public void ShowUnitDetail(UnitDetailViewModel detail) { }
+        public void ShowRecipeManager(RecipeManagerViewModel model) { }
     }
 
     internal sealed class OfflineDevice : IEthercatDevice

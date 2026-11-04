@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows;
@@ -7,6 +9,8 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using SemiconductorUi.Controllers;
 using SemiconductorUi.Hardware;
+using SemiconductorUi.Models;
+using SemiconductorUi.Repositories;
 using SemiconductorUi.Process;
 using SemiconductorUi.Services;
 using SemiconductorUi.Wpf.Infrastructure;
@@ -65,7 +69,15 @@ namespace SemiconductorUi.Wpf.ViewModels
             ServoOnCommand = new RelayCommand(() => _ = ServoOnAsync(), () => State.IsLoggedIn && IsEthercatConnected && !_servoBusy);
             ServoOffCommand = new RelayCommand(ServoOff, () => IsEthercatConnected && !_servoBusy);
             HomeCommand = new RelayCommand(() => Engine.HomeButton(), () => IsEthercatConnected && !_servoBusy);
-            NavigateCommand = new RelayCommand(p => { if (p is NavPage page) CurrentPage = page; });
+            NavigateCommand = new RelayCommand(p =>
+            {
+                if (p is NavPage page)
+                {
+                    // 원본: 레시피 메뉴는 화면을 바꾸지 않고 레시피 관리 창(모달)을 연다
+                    if (page == NavPage.Recipe) OpenRecipeManager();
+                    else CurrentPage = page;
+                }
+            });
 
             Monitoring = new MonitoringViewModel(this, dialogs);
 
@@ -89,6 +101,18 @@ namespace SemiconductorUi.Wpf.ViewModels
             State.CurrentUser = "Guest";
             State.CurrentRole = "없음";
             AddLog("프로그램 시작 (WPF)", "INFO");
+
+            // 초기 레시피 목록과 환경 알람 임계값 (원본 Form1_Load)
+            try
+            {
+                ReloadRecipeList();
+            }
+            catch (Exception ex)
+            {
+                string errorMessage = ExceptionHandler.HandleException(ex, "레시피 로드", AddLog);
+                AddLog($"레시피 목록을 로드하는 중 오류가 발생했습니다: {errorMessage}", "WARN");
+            }
+            Engine.LoadAlarmThresholds();
         }
 
         #region Core 서비스
@@ -388,6 +412,58 @@ namespace SemiconductorUi.Wpf.ViewModels
             }
             _dialogs.ShowUserManagement(new UserManagementViewModel(_dialogs, _users, State.CurrentUser));
         }
+
+        #region 레시피
+
+        /// <summary>제어 패널 레시피 목록 (원본 comboRecipeSelect)</summary>
+        public System.Collections.ObjectModel.ObservableCollection<string> RecipeNames { get; } = new System.Collections.ObjectModel.ObservableCollection<string>();
+
+        /// <summary>원본 Form1.ReloadRecipeCombo</summary>
+        public void ReloadRecipeList(List<RecipeSnapshot> provided = null)
+        {
+            var list = provided ?? RecipeRepository.LoadAll();
+            var selected = Monitoring?.SelectedRecipeName;
+            RecipeNames.Clear();
+            foreach (var r in list.OrderBy(r => r.Name))
+            {
+                if (!string.IsNullOrWhiteSpace(r.Name)) RecipeNames.Add(r.Name);
+            }
+            if (Monitoring != null)
+            {
+                Monitoring.SelectedRecipeName = !string.IsNullOrEmpty(selected) && RecipeNames.Contains(selected) ? selected : null;
+            }
+        }
+
+        /// <summary>원본 NavigationEventHandlers.ButtonNavRecipe_Click: 관리자만 레시피 관리 창을 연다</summary>
+        private void OpenRecipeManager()
+        {
+            if (!EnsureLoggedIn()) return;
+            if (State.CurrentRole != "관리자")
+            {
+                _dialogs.Warn("레시피 직접 수정은 관리자만 접근할 수 있습니다.", "권한 없음");
+                return;
+            }
+            try
+            {
+                var model = new RecipeManagerViewModel(_dialogs, RecipeRepository.LoadAll, RecipeRepository.SaveAll)
+                {
+                    OnSavedAll = list =>
+                    {
+                        try { ReloadRecipeList(list); }
+                        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"레시피 리로드 오류: {ex.Message}"); }
+                    }
+                };
+                _dialogs.ShowRecipeManager(model);
+                // 닫힌 뒤에도 한 번 더 로드 보정
+                ReloadRecipeList();
+            }
+            catch (Exception ex)
+            {
+                _dialogs.Error($"Recipe 관리 화면을 여는 중 문제가 발생했습니다.\r\n{ex.Message}\r\n\r\n{ex.GetType().FullName}", "오류");
+            }
+        }
+
+        #endregion
 
         /// <summary>원본 Form1.EnsureLoggedIn</summary>
         public bool EnsureLoggedIn()

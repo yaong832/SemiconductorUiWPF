@@ -35,6 +35,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             ToggleFoupMountCommand = new RelayCommand(() => Run(Engine.ToggleFoupMountButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
             WaferLoadingCommand = new RelayCommand(() => Run(Engine.WaferLoadingButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
             WaferUnloadingCommand = new RelayCommand(() => Run(Engine.WaferUnloadingButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
+            ApplyRecipeCommand = new RelayCommand(() => Run(() => Engine.ApplyRecipeButton(SelectedRecipeName)), () => State.IsLoggedIn);
             UnitDetail = new UnitDetailViewModel(key => Engine?.BuildUnitDetail(key));
             NotYetPortedCommand = new RelayCommand(p => _shell.AddLog($"'{p}' 기능은 다음 단계에서 이관됩니다.", "INFO"));
 
@@ -160,6 +161,16 @@ namespace SemiconductorUi.Wpf.ViewModels
         public ICommand WaferLoadingCommand { get; }
         public ICommand WaferUnloadingCommand { get; }
         public ICommand NotYetPortedCommand { get; }
+        public ICommand ApplyRecipeCommand { get; }
+
+        private string _selectedRecipeName;
+
+        /// <summary>제어 패널 레시피 목록에서 고른 이름 (원본 comboRecipeSelect.SelectedItem). 적용을 눌러야 공정에 반영된다.</summary>
+        public string SelectedRecipeName
+        {
+            get => _selectedRecipeName;
+            set => SetProperty(ref _selectedRecipeName, value);
+        }
 
         public string FoupMountText => State.IsFoupAMounted && State.IsFoupBMounted ? "FOUP 장착됨" : "FOUP 미장착";
 
