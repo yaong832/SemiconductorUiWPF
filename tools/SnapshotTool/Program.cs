@@ -133,11 +133,15 @@ namespace SnapshotTool
                 TextElement.SetFontFamily(host, window.FontFamily);
                 TextElement.SetFontSize(host, window.FontSize);
                 foreach (var k in window.Resources.Keys) host.Resources[k] = window.Resources[k];
+                // 바인딩과 목록 칸이 만들어진 뒤의 높이로 다시 잰다
+                host.Measure(new Size(window.Width, double.PositiveInfinity));
+                host.Arrange(new Rect(host.DesiredSize));
+                Pump(300);
+                host.InvalidateMeasure();
                 host.Measure(new Size(window.Width, double.PositiveInfinity));
                 var size = host.DesiredSize;
                 host.Arrange(new Rect(size));
                 host.UpdateLayout();
-                Pump(200);
                 string name = key.Replace(" ", "").ToLowerInvariant();
                 Save(host, (int)Math.Ceiling(size.Width), (int)Math.Ceiling(size.Height), Path.Combine(outDir, $"unit-detail-{name}.png"));
                 window.ForceClose();
