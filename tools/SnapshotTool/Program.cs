@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -36,6 +37,7 @@ namespace SnapshotTool
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-running-1600x900.png"), 75));
             // 챔버/FOUP 상세 창 (공정 중)
             failures += Try(() => SnapUnitDetail(outDir, 75, "PMA", "PMB", "FOUP A", "FOUP B"));
+            failures += Try(() => SnapRecipeManager(Path.Combine(outDir, "recipe-manager.png")));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
         }
@@ -111,6 +113,10 @@ namespace SnapshotTool
                 vm.State.IsLoggedIn = true;
                 vm.State.CurrentUser = "operator";
                 vm.State.CurrentRole = "운영자";
+                // 첫 레시피를 적용해 환경 표에 SV가 나오게 한다
+                var first = SemiconductorUi.Repositories.RecipeRepository.LoadAll().OrderBy(r => r.Name).First();
+                vm.Monitoring.SelectedRecipeName = first.Name;
+                vm.Monitoring.ApplyRecipeCommand.Execute(null);
                 vm.Engine.ToggleFoupMountButton();
                 vm.Engine.WaferLoadingButton();
                 vm.Engine.StartButton();
@@ -146,6 +152,27 @@ namespace SnapshotTool
                 Save(host, (int)Math.Ceiling(size.Width), (int)Math.Ceiling(size.Height), Path.Combine(outDir, $"unit-detail-{name}.png"));
                 window.ForceClose();
             }
+        }
+
+        private static void SnapRecipeManager(string path)
+        {
+            var model = new RecipeManagerViewModel(new AutoDialogs(), SemiconductorUi.Repositories.RecipeRepository.LoadAll, list => { });
+            model.Selected = model.Items.FirstOrDefault();
+            var window = new SemiconductorUi.Wpf.Views.RecipeManagerWindow(model);
+            var root = (FrameworkElement)window.Content;
+            window.Content = null;
+            var host = new Border { Background = window.Background, Child = root, DataContext = model };
+            TextElement.SetFontFamily(host, window.FontFamily);
+            TextElement.SetFontSize(host, window.FontSize);
+            TextElement.SetForeground(host, window.Foreground);
+            foreach (var k in window.Resources.Keys) host.Resources[k] = window.Resources[k];
+            int w = (int)window.Width, h = (int)window.Height - 32;
+            host.Measure(new Size(w, h));
+            host.Arrange(new Rect(0, 0, w, h));
+            Pump(300);
+            host.UpdateLayout();
+            Save(host, w, h, path);
+            window.Close();
         }
 
         private static void SnapMainWindow(string path, int simulationTicks)
@@ -199,6 +226,7 @@ namespace SnapshotTool
         public int? PromptWaferCount(int current, int min, int max) => max;
         public bool TryLogin(out string username, out string password) { username = null; password = null; return false; }
         public void ShowUnitDetail(UnitDetailViewModel detail) { }
+        public void ShowRecipeManager(RecipeManagerViewModel model) { }
     }
 
     internal sealed class OfflineDevice : IEthercatDevice

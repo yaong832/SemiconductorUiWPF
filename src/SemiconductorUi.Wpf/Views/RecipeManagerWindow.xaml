@@ -1,0 +1,198 @@
+<Window x:Class="SemiconductorUi.Wpf.Views.RecipeManagerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="레시피 관리" Width="1180" Height="700" ResizeMode="NoResize" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" Background="{StaticResource Surface}"
+        FontFamily="{StaticResource UiFont}" FontSize="13" Foreground="{StaticResource TextPrimary}">
+    <!-- 원본 Forms.RecipeManagerForm -->
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <Style x:Key="Plate" TargetType="GroupBox">
+            <Setter Property="Background" Value="{StaticResource SurfaceAlt}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+            <Setter Property="Padding" Value="12,6,12,10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="6">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Top" Text="{TemplateBinding Header}" FontWeight="Bold" FontSize="13"
+                                           Margin="12,10,12,0"/>
+                                <ContentPresenter Margin="{TemplateBinding Padding}"/>
+                            </DockPanel>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Caption" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource Primary}"/>
+            <Setter Property="Margin" Value="0,8,0,4"/>
+        </Style>
+        <Style x:Key="RowLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="Field" TargetType="TextBox">
+            <Setter Property="Width" Value="106"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Margin" Value="0,3"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Right"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+        </Style>
+        <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="378"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 왼쪽: 레시피 목록 + 신규/삭제 -->
+        <Border Grid.Column="0" Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}" BorderThickness="0,0,1,0">
+            <DockPanel Margin="16">
+                <TextBlock DockPanel.Dock="Top" Text="레시피 목록" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+                <UniformGrid DockPanel.Dock="Bottom" Columns="2" Margin="0,10,0,0">
+                    <Button Content="신규" Style="{StaticResource ActionButton}" Margin="0,0,5,0" Command="{Binding NewCommand}"/>
+                    <Button Content="삭제" Style="{StaticResource ActionButton}" Margin="5,0,0,0" Command="{Binding DeleteCommand}"/>
+                </UniformGrid>
+                <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" BorderBrush="{StaticResource Border}"
+                         Background="{StaticResource Surface}" HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="Back" Background="{StaticResource Surface}" BorderBrush="#ECF0F5" BorderThickness="0,0,0,1">
+                                            <Grid>
+                                                <Border x:Name="Accent" Width="4" HorizontalAlignment="Left" Margin="0,6" Background="{StaticResource Primary}" Visibility="Collapsed"/>
+                                                <ContentPresenter Margin="16,7,12,7"/>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Back" Property="Background" Value="#E8EFFA"/>
+                                                <Setter TargetName="Accent" Property="Visibility" Value="Visible"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock x:Name="NameText" Text="{Binding Name}" FontWeight="Bold" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{StaticResource TextSecondary}" TextTrimming="CharacterEllipsis"
+                                           Visibility="{Binding HasDetail, Converter={StaticResource BoolToVis}}"/>
+                            </StackPanel>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                                    <Setter TargetName="NameText" Property="Foreground" Value="{StaticResource Primary}"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- 오른쪽: 편집 영역 + 아래 저장/닫기 -->
+        <DockPanel Grid.Column="1">
+            <Border DockPanel.Dock="Bottom" Height="68" BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,20,0" VerticalAlignment="Center">
+                    <Button Content="닫기" Style="{StaticResource ActionButton}" Width="110" Margin="0,0,10,0" Command="{Binding CloseCommand}"/>
+                    <Button Content="저장" Style="{StaticResource PrimaryButton}" Width="140" Height="44" FontWeight="Bold" Command="{Binding SaveCommand}"/>
+                </StackPanel>
+            </Border>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto" DataContext="{Binding Editor}">
+                <StackPanel Margin="20,16,20,16">
+                    <TextBlock Text="레시피 편집" FontSize="16" FontWeight="Bold" Margin="0,0,0,12"/>
+
+                    <!-- 기본 정보 -->
+                    <GroupBox Header="기본 정보" Style="{StaticResource Plate}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="330"/>
+                                <ColumnDefinition Width="32"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="레시피 이름" Style="{StaticResource RowLabel}"/>
+                            <TextBox Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Height="28"
+                                     VerticalContentAlignment="Center" BorderBrush="{StaticResource Border}"/>
+                            <TextBlock Grid.Column="3" Text="웨이퍼 수 (장)" Style="{StaticResource RowLabel}" Margin="0,0,12,0"/>
+                            <TextBox Grid.Column="4" Text="{Binding WaferCount}" Style="{StaticResource Field}" Width="90"/>
+                            <CheckBox Grid.Row="1" Grid.ColumnSpan="2" Content="2차 노광 사용" IsChecked="{Binding SecondExposure}" Margin="0,10,0,0"/>
+                        </Grid>
+                    </GroupBox>
+
+                    <!-- Chamber 카드: 공정 시간, 환경, 가스·RF -->
+                    <ItemsControl ItemsSource="{Binding Chambers}" Margin="0,12,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="3"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <GroupBox Header="{Binding Title}" Style="{StaticResource Plate}" Margin="0,0,10,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/><RowDefinition/>
+                                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Text="공정" Style="{StaticResource Caption}"/>
+                                        <TextBlock Grid.Row="1" Text="공정 시간 (초)" Style="{StaticResource RowLabel}"/>
+                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Duration}" Style="{StaticResource Field}"/>
+
+                                        <TextBlock Grid.Row="2" Text="환경" Style="{StaticResource Caption}"/>
+                                        <TextBlock Grid.Row="3" Text="온도 (°C)" Style="{StaticResource RowLabel}"/>
+                                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Temperature}" Style="{StaticResource Field}"/>
+                                        <TextBlock Grid.Row="4" Text="압력 (Torr)" Style="{StaticResource RowLabel}"/>
+                                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Pressure}" Style="{StaticResource Field}"/>
+                                        <TextBlock Grid.Row="5" Text="습도 (%)" Style="{StaticResource RowLabel}"/>
+                                        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Humidity}" Style="{StaticResource Field}"/>
+
+                                        <TextBlock Grid.Row="6" Text="가스 · RF" Style="{StaticResource Caption}"/>
+                                        <TextBlock Grid.Row="7" Text="NF3 (sccm)" Style="{StaticResource RowLabel}"/>
+                                        <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding NF3}" Style="{StaticResource Field}"/>
+                                        <TextBlock Grid.Row="8" Text="O2 (sccm)" Style="{StaticResource RowLabel}"/>
+                                        <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding O2}" Style="{StaticResource Field}"/>
+                                        <TextBlock Grid.Row="9" Text="CF4 (sccm)" Style="{StaticResource RowLabel}"/>
+                                        <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding CF4}" Style="{StaticResource Field}"/>
+                                        <TextBlock Grid.Row="10" Text="RF (W)" Style="{StaticResource RowLabel}"/>
+                                        <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding RF}" Style="{StaticResource Field}"/>
+                                    </Grid>
+                                </GroupBox>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Grid>
+</Window>

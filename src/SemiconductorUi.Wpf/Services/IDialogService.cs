@@ -22,5 +22,8 @@ namespace SemiconductorUi.Wpf.Services
         /// detail.IsOpen이 false가 되면 숨긴다. 이미 떠 있으면 자리는 그대로 둔다.
         /// </summary>
         void ShowUnitDetail(ViewModels.UnitDetailViewModel detail);
+
+        /// <summary>레시피 관리 창 (원본 RecipeManagerForm.ShowDialog)</summary>
+        void ShowRecipeManager(ViewModels.RecipeManagerViewModel model);
     }
 }

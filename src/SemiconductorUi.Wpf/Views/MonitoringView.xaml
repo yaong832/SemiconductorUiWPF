@@ -112,7 +112,9 @@
                         <TextBlock Foreground="{StaticResource TextSecondary}" Margin="3,0,0,6">
                             <Run Text="현재 선택 레시피:"/> <Run Text="{Binding State.LastSelectedRecipe, Mode=OneWay, TargetNullValue=-}" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"/>
                         </TextBlock>
-                        <Button Content="레시피 적용" Style="{StaticResource PanelButton}" Command="{Binding NotYetPortedCommand}" CommandParameter="레시피 적용"/>
+                        <ComboBox ItemsSource="{Binding Shell.RecipeNames}" SelectedItem="{Binding SelectedRecipeName}" Margin="3" Height="30"
+                                  VerticalContentAlignment="Center"/>
+                        <Button Content="레시피 적용" Style="{StaticResource PanelButton}" Command="{Binding ApplyRecipeCommand}"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
