@@ -544,6 +544,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             OnPropertyChanged(nameof(ServoStatusBrush));
             OnPropertyChanged(nameof(IsEthercatConnected));
             NotifyPill();
+            Monitoring?.UpdateScene();
         }
 
         #endregion
