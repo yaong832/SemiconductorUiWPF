@@ -38,6 +38,7 @@ namespace SnapshotTool
             // 챔버/FOUP 상세 창 (공정 중)
             failures += Try(() => SnapUnitDetail(outDir, 75, "PMA", "PMB", "FOUP A", "FOUP B"));
             failures += Try(() => SnapRecipeManager(Path.Combine(outDir, "recipe-manager.png")));
+            failures += Try(() => SnapUserManagement(Path.Combine(outDir, "user-management.png")));
             failures += Try(() => SnapTeaching(outDir));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
@@ -155,11 +156,27 @@ namespace SnapshotTool
             }
         }
 
+        private static void SnapUserManagement(string path)
+        {
+            var repo = new SemiconductorUi.Repositories.UserRepositoryImpl(Path.GetTempFileName());
+            var users = repo.EnsureSeedDefaults();
+            users.Add(new SemiconductorUi.Models.User { Username = "operator1", Password = SemiconductorUi.PasswordHelper.HashPassword("x"), Role = "작업자" });
+            repo.SaveAll(users);
+            var model = new UserManagementViewModel(new AutoDialogs(), repo, "admin");
+            model.Selected = model.Users.FirstOrDefault(u => u.Username == "operator1");
+            SnapDialog(new SemiconductorUi.Wpf.Views.UserManagementWindow(model), model, path);
+        }
+
         private static void SnapRecipeManager(string path)
         {
             var model = new RecipeManagerViewModel(new AutoDialogs(), SemiconductorUi.Repositories.RecipeRepository.LoadAll, list => { });
             model.Selected = model.Items.FirstOrDefault();
-            var window = new SemiconductorUi.Wpf.Views.RecipeManagerWindow(model);
+            SnapDialog(new SemiconductorUi.Wpf.Views.RecipeManagerWindow(model), model, path);
+        }
+
+        /// <summary>모달 창을 띄우지 않고 내용만 떼어 창 크기로 찍는다.</summary>
+        private static void SnapDialog(Window window, object model, string path)
+        {
             var root = (FrameworkElement)window.Content;
             window.Content = null;
             var host = new Border { Background = window.Background, Child = root, DataContext = model };
@@ -195,21 +212,7 @@ namespace SnapshotTool
                 model.FoupA.Levels[1].Raise.Text = "700000";
                 model.FoupA.Levels[3].Land.Text = "21l9399";
                 model.SelectedSection = model.Sections.First(s => s.Title == section);
-                var window = new SemiconductorUi.Wpf.Views.TeachingPositionWindow(model);
-                var root = (FrameworkElement)window.Content;
-                window.Content = null;
-                var host = new Border { Background = window.Background, Child = root, DataContext = model };
-                TextElement.SetFontFamily(host, window.FontFamily);
-                TextElement.SetFontSize(host, window.FontSize);
-                TextElement.SetForeground(host, window.Foreground);
-                foreach (var k in window.Resources.Keys) host.Resources[k] = window.Resources[k];
-                int w = (int)window.Width, h = (int)window.Height - 32;
-                host.Measure(new Size(w, h));
-                host.Arrange(new Rect(0, 0, w, h));
-                Pump(300);
-                host.UpdateLayout();
-                Save(host, w, h, Path.Combine(outDir, file));
-                window.Close();
+                SnapDialog(new SemiconductorUi.Wpf.Views.TeachingPositionWindow(model), model, Path.Combine(outDir, file));
             }
         }
 
@@ -262,6 +265,7 @@ namespace SnapshotTool
         public bool Confirm(string message, string title = "확인") => true;
         public bool Confirm(string message, string title, bool defaultNo) => true;
         public int? PromptWaferCount(int current, int min, int max) => max;
+        public void ShowUserManagement(UserManagementViewModel model) { }
         public bool TryLogin(out string username, out string password) { username = null; password = null; return false; }
         public void ShowUnitDetail(UnitDetailViewModel detail) { }
         public void ShowRecipeManager(RecipeManagerViewModel model) { }

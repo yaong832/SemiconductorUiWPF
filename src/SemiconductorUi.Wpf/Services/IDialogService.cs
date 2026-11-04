@@ -14,6 +14,9 @@ namespace SemiconductorUi.Wpf.Services
         /// <summary>로딩할 웨이퍼 수 입력 (원본 FoupManager.PromptForWaferCount). 취소하면 null.</summary>
         int? PromptWaferCount(int current, int min, int max);
 
+        /// <summary>사용자 관리 창 (원본 UserManagementForm.ShowDialog)</summary>
+        void ShowUserManagement(ViewModels.UserManagementViewModel model);
+
         /// <summary>로그인 창을 띄운다. 취소하면 false.</summary>
         bool TryLogin(out string username, out string password);
 
