@@ -16,5 +16,11 @@ namespace SemiconductorUi.Wpf.Services
 
         /// <summary>로그인 창을 띄운다. 취소하면 false.</summary>
         bool TryLogin(out string username, out string password);
+
+        /// <summary>
+        /// 챔버/FOUP 상세 창을 띄운다 (원본 ShowUnitDetail). 메인 화면을 잠그지 않는 창 하나를 다시 쓰며,
+        /// detail.IsOpen이 false가 되면 숨긴다. 이미 떠 있으면 자리는 그대로 둔다.
+        /// </summary>
+        void ShowUnitDetail(ViewModels.UnitDetailViewModel detail);
     }
 }

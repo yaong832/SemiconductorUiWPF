@@ -32,7 +32,7 @@
         </Grid.RowDefinitions>
 
         <!-- 장비 캔버스 (원본 panelEquipmentCanvas: TM, 챔버, FOUP, 상태 램프, TM 정면/옆면) -->
-        <Border Grid.Row="0" Grid.Column="0" Style="{StaticResource Card}" Padding="0" ClipToBounds="True">
+        <Border x:Name="EquipmentCanvasHost" Grid.Row="0" Grid.Column="0" Style="{StaticResource Card}" Padding="0" ClipToBounds="True">
             <ctl:EquipmentCanvas Scene="{Binding Scene}" RegionClicked="OnRegionClicked"/>
         </Border>
 
@@ -55,7 +55,7 @@
         </Border>
 
         <!-- 오른쪽 패널 -->
-        <ScrollViewer Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer x:Name="ControlPanel" Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <!-- 공정 경과 시간 -->
                 <Border Style="{StaticResource Card}">

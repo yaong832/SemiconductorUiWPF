@@ -33,8 +33,19 @@ namespace SemiconductorUi.Process
             {
                 // 공정 중: 램프 켜짐
                 on = true;
+                _simLampBlinkStartMs.Remove(region);
                 _chamberLampBlinkStates[region] = false;
                 _chamberLampBlinkCounters[region] = 0;
+            }
+            else if (isCompleted && !EthercatConnected)
+            {
+                // 시뮬레이션 모드 공정 완료 (웨이퍼 있음): 시간 기준 깜빡임 (원본 7a28c12)
+                // 틱(1초) 수를 세면 10초마다 바뀌어 점멸로 보이지 않으므로 시간으로 계산한다.
+                if (!_simLampBlinkStartMs.ContainsKey(region))
+                {
+                    _simLampBlinkStartMs[region] = LampClockMs();
+                }
+                on = GetSimLampBlinkOn(region);
             }
             else if (isCompleted)
             {
@@ -56,6 +67,7 @@ namespace SemiconductorUi.Process
             {
                 // 웨이퍼 없음: 램프 꺼짐
                 on = false;
+                _simLampBlinkStartMs.Remove(region);
                 _chamberLampBlinkStates[region] = false;
                 _chamberLampBlinkCounters[region] = 0;
             }
@@ -63,6 +75,63 @@ namespace SemiconductorUi.Process
             if (EthercatConnected && !isSyncingEquipmentState)
             {
                 SetChamberLamp(region, on);
+            }
+        }
+
+        // 시뮬레이션 점멸: 하드웨어 램프처럼 꺼짐으로 시작해 한 주기(10틱 x 하드웨어 틱 간격)마다 켜짐/꺼짐을 바꾼다.
+        private readonly Dictionary<EquipmentRegion, long> _simLampBlinkStartMs = new Dictionary<EquipmentRegion, long>();
+        private readonly System.Diagnostics.Stopwatch _simLampClock = System.Diagnostics.Stopwatch.StartNew();
+
+        /// <summary>점멸 시계 (밀리초). 시험에서 바꿔 끼운다.</summary>
+        internal Func<long> LampClockMs;
+
+        /// <summary>화면이 점멸을 다시 계산할 간격 (원본 SIM_LAMP_BLINK_REFRESH_MS)</summary>
+        public const int SimLampBlinkRefreshMs = 100;
+
+        /// <summary>시뮬레이션 모드에서 시간 기준으로 깜빡이는 챔버 램프가 있는지</summary>
+        public bool HasSimLampBlinking => _simLampBlinkStartMs.Count > 0;
+
+        private bool GetSimLampBlinkOn(EquipmentRegion region)
+        {
+            long phaseMs = (long)CHAMBER_LAMP_BLINK_INTERVAL * Math.Max(1, AppSettings.HardwareModeTickMilliseconds);
+            long elapsed = LampClockMs() - _simLampBlinkStartMs[region];
+            return (elapsed / phaseMs) % 2 == 1;
+        }
+
+        /// <summary>
+        /// 시뮬레이션 틱(1초) 사이에도 점멸이 바뀌도록 화면이 짧은 간격으로 부른다 (원본 SimLampBlinkTimer_Tick).
+        /// 장비 출력은 건드리지 않는다. 램프 표시가 바뀌었으면 true.
+        /// </summary>
+        public bool TickSimLampBlink()
+        {
+            if (_simLampBlinkStartMs.Count == 0)
+            {
+                return false;
+            }
+            if (EthercatConnected)
+            {
+                // 장비에 연결되면 화면 램프는 실제 램프와 같은 틱 카운터로 돌아간다.
+                _simLampBlinkStartMs.Clear();
+                return false;
+            }
+            bool changed = false;
+            foreach (var region in new[] { EquipmentRegion.ChamberA, EquipmentRegion.ChamberB, EquipmentRegion.ChamberC })
+            {
+                bool before = IsChamberLampOn(region);
+                UpdateChamberLamp(GetChamberState(region), region);
+                changed |= before != IsChamberLampOn(region);
+            }
+            return changed;
+        }
+
+        private ChamberController.ChamberState GetChamberState(EquipmentRegion region)
+        {
+            switch (region)
+            {
+                case EquipmentRegion.ChamberA: return ChamberAState;
+                case EquipmentRegion.ChamberB: return ChamberBState;
+                case EquipmentRegion.ChamberC: return ChamberCState;
+                default: return null;
             }
         }
 

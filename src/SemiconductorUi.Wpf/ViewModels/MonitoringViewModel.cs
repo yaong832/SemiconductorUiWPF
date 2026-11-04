@@ -2,6 +2,7 @@ using System;
 using System.Windows.Input;
 using System.Windows.Media;
 using SemiconductorUi.Controls;
+using SemiconductorUi.Helpers;
 using SemiconductorUi.Models;
 using SemiconductorUi.Process;
 using SemiconductorUi.Wpf.Controls;
@@ -34,6 +35,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             ToggleFoupMountCommand = new RelayCommand(() => Run(Engine.ToggleFoupMountButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
             WaferLoadingCommand = new RelayCommand(() => Run(Engine.WaferLoadingButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
             WaferUnloadingCommand = new RelayCommand(() => Run(Engine.WaferUnloadingButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
+            UnitDetail = new UnitDetailViewModel(key => Engine?.BuildUnitDetail(key));
             NotYetPortedCommand = new RelayCommand(p => _shell.AddLog($"'{p}' 기능은 다음 단계에서 이관됩니다.", "INFO"));
 
             State.PropertyChanged += (s, e) =>
@@ -138,6 +140,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             if (info.Positions != null) s.TeachingPositions = info.Positions;
 
             s.NotifyChanged();
+            UnitDetail?.Refresh();
             OnPropertyChanged(nameof(TmStatusText));
             OnPropertyChanged(nameof(ProcessDetailText));
         }
@@ -172,11 +175,45 @@ namespace SemiconductorUi.Wpf.ViewModels
         /// <summary>원본 StatusProcessDetail ("공정 상태: 진행 중 | 완료 1/5")</summary>
         public string ProcessDetailText => State.StatusProcessDetail;
 
-        /// <summary>장비 그림에서 챔버/FOUP 클릭 (원본: PmDetailForm/EquipmentDetailForm 열기)</summary>
+        /// <summary>챔버/FOUP 상세 창 (원본 UnitDetailForm). 화면 갱신마다 값을 다시 채운다.</summary>
+        public UnitDetailViewModel UnitDetail { get; }
+
+        /// <summary>장비 그림에서 챔버/FOUP 클릭 (원본 HandleEquipmentUnitClick)</summary>
         public void OpenRegionDetail(EquipmentRegion region)
         {
-            // TODO(5단계): PmDetailForm / EquipmentDetailForm 이관
-            _shell.AddLog($"{region} 상세 화면은 다음 단계에서 이관됩니다.", "INFO");
+            if (!State.IsLoggedIn)
+            {
+                _dialogs.Warn("상세 정보를 보려면 먼저 로그인하세요.", "권한 필요");
+                return;
+            }
+
+            string unitKey = ToUnitKey(region);
+            if (unitKey == null)
+            {
+                // TODO(5단계): TM 상세는 원본 EquipmentDetailForm(모달) 이관 때
+                _shell.AddLog($"{EquipmentRegionHelper.FormatRegionLabel(region)} 상세 화면은 다음 단계에서 이관됩니다.", "INFO");
+                return;
+            }
+
+            // 떠 있는 동안 다른 장비를 누르면 내용만 바뀌고 자리는 그대로다.
+            UnitDetail.Show(unitKey);
+            _dialogs.ShowUnitDetail(UnitDetail);
+        }
+
+        /// <summary>원본 CloseUnitDetail (로그아웃 때)</summary>
+        public void CloseUnitDetail() => UnitDetail.Close();
+
+        private static string ToUnitKey(EquipmentRegion region)
+        {
+            switch (region)
+            {
+                case EquipmentRegion.ChamberA: return "PMA";
+                case EquipmentRegion.ChamberB: return "PMB";
+                case EquipmentRegion.ChamberC: return "PMC";
+                case EquipmentRegion.FoupA: return "FOUP A";
+                case EquipmentRegion.FoupB: return "FOUP B";
+                default: return null;
+            }
         }
 
         /// <summary>공정 타이머 Tick (UI 스레드, 엔진 처리 뒤)</summary>

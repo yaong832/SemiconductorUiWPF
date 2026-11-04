@@ -39,6 +39,7 @@ namespace SemiconductorUi.Process
             HardwareManager = hardwareManager ?? throw new ArgumentNullException(nameof(hardwareManager));
             SimulationService = simulation ?? throw new ArgumentNullException(nameof(simulation));
             Host = host ?? throw new ArgumentNullException(nameof(host));
+            LampClockMs = () => _simLampClock.ElapsedMilliseconds;
 
             ChamberService = new ChamberController(ChamberProcessFlow);
             TransferService = new TransferController();
