@@ -323,10 +323,12 @@ namespace SemiconductorUi.Process
         public string[][] GetEnvironmentRows(string unitKey)
         {
             var v = GetEnvironmentValues(unitKey) ?? new ChamberEnvironmentValues();
-            string[] Row(string name, double pv, double sv, string unit) => new[]
+            // 원본 상태 패널은 가스/RF PV를 SV 근처 값으로 따로 만들어서(GenerateGasPV) SV가 0이면 PV도 "-"였다.
+            // 여기서는 판정에 쓴 PV를 그대로 보이되, 가스/RF는 SV가 0이면 누설 확인용 작은 값이라 "-"로 둔다.
+            string[] Row(string name, double pv, double sv, string unit, bool needsSv = true) => new[]
             {
                 name,
-                v.IsProcessing && pv > 0 ? FormatEnvValue(pv, unit) : "-",
+                v.IsProcessing && pv > 0 && (!needsSv || sv > 0) ? FormatEnvValue(pv, unit) : "-",
                 RecipeApplied && sv > 0 ? FormatEnvValue(sv, unit) : "-",
                 unit
             };
@@ -335,9 +337,9 @@ namespace SemiconductorUi.Process
                 Row("NF3", v.PvNF3, v.SvNF3, "sccm"),
                 Row("O2", v.PvO2, v.SvO2, "sccm"),
                 Row("CF4", v.PvCF4, v.SvCF4, "sccm"),
-                Row("압력", v.PvPress, v.SvPress, "Torr"),
+                Row("압력", v.PvPress, v.SvPress, "Torr", needsSv: false),
                 Row("RF", v.PvRf, v.SvRf, "W"),
-                Row("온도", v.PvTemp, v.SvTemp, "°C"),
+                Row("온도", v.PvTemp, v.SvTemp, "°C", needsSv: false),
             };
         }
 

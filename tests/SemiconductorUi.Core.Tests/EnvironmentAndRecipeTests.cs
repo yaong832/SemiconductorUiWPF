@@ -66,8 +66,16 @@ namespace SemiconductorUi.Tests
             Assert.AreNotEqual("-", rows.First(r => r[0] == "온도")[1], "공정 중이면 온도 PV가 나옵니다");
             Assert.AreNotEqual("-", rows.First(r => r[0] == "NF3")[1]);
 
+            // 가스 SV가 0인 챔버(B)는 가스 PV도 "-" (원본 상태 패널과 같음)
+            for (int i = 0; i < 20000 && !_engine.IsChamberProcessing(_engine.ChamberBState); i++) _engine.OnSimulationTick();
+            _engine.OnSimulationTick();
+            var b = _engine.GetEnvironmentRows("PMB");
+            Assert.AreEqual("-", b.First(r => r[0] == "NF3")[1]);
+            Assert.AreNotEqual("-", b.First(r => r[0] == "압력")[1]);
+
             // 공정 중이 아닌 챔버는 PV가 없다
-            Assert.IsTrue(_engine.GetEnvironmentRows("PMB").All(r => r[1] == "-"));
+            if (!_engine.IsChamberProcessing(_engine.ChamberCState))
+                Assert.IsTrue(_engine.GetEnvironmentRows("PMC").All(r => r[1] == "-"));
         }
 
         [TestMethod]
