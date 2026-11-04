@@ -26,7 +26,13 @@ namespace SemiconductorUi.Wpf.Services
         /// </summary>
         void ShowUnitDetail(ViewModels.UnitDetailViewModel detail);
 
+        /// <summary>설정 창 (원본 ConfigForm.ShowDialog)</summary>
+        void ShowConfig(ViewModels.ConfigViewModel model);
+
         /// <summary>레시피 관리 창 (원본 RecipeManagerForm.ShowDialog)</summary>
         void ShowRecipeManager(ViewModels.RecipeManagerViewModel model);
+
+        /// <summary>TM 티칭 위치 창 (원본 TeachingPositionForm.ShowDialog)</summary>
+        void ShowTeachingPositions(ViewModels.TeachingPositionViewModel model);
     }
 }

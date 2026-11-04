@@ -51,9 +51,21 @@ namespace SemiconductorUi.Wpf.Services
             return ok;
         }
 
+        public void ShowConfig(ConfigViewModel model)
+        {
+            var window = new ConfigWindow(model) { Owner = Owner };
+            window.ShowDialog();
+        }
+
         public void ShowRecipeManager(RecipeManagerViewModel model)
         {
             var window = new RecipeManagerWindow(model) { Owner = Owner };
+            window.ShowDialog();
+        }
+
+        public void ShowTeachingPositions(TeachingPositionViewModel model)
+        {
+            var window = new TeachingPositionWindow(model) { Owner = Owner };
             window.ShowDialog();
         }
 

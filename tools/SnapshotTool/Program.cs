@@ -37,8 +37,10 @@ namespace SnapshotTool
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-running-1600x900.png"), 75));
             // 챔버/FOUP 상세 창 (공정 중)
             failures += Try(() => SnapUnitDetail(outDir, 75, "PMA", "PMB", "FOUP A", "FOUP B"));
+            failures += Try(() => SnapConfig(Path.Combine(outDir, "config.png")));
             failures += Try(() => SnapRecipeManager(Path.Combine(outDir, "recipe-manager.png")));
             failures += Try(() => SnapUserManagement(Path.Combine(outDir, "user-management.png")));
+            failures += Try(() => SnapTeaching(outDir));
             // 추이 화면: 1초 간격 시각으로 150틱 수집
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "trend-1600x900.png"), 150,
                 vm =>
@@ -165,6 +167,14 @@ namespace SnapshotTool
             }
         }
 
+        private static void SnapConfig(string path)
+        {
+            var model = new ConfigViewModel(new AutoDialogs(), ConfigViewModel.CreateDefault(), t => true);
+            // 경고가 알람보다 큰 칸이 빨갛게 보이는지
+            model.Gas.Fields[0].Value = 20;
+            SnapDialog(new SemiconductorUi.Wpf.Views.ConfigWindow(model), model, path);
+        }
+
         private static void SnapUserManagement(string path)
         {
             var repo = new SemiconductorUi.Repositories.UserRepositoryImpl(Path.GetTempFileName());
@@ -200,6 +210,29 @@ namespace SnapshotTool
             host.UpdateLayout();
             Save(host, w, h, path);
             window.Close();
+        }
+
+        private sealed class NullTeachingStore : ITeachingStore
+        {
+            public void SaveTeaching(SemiconductorUi.Models.TeachingPositionsData data) { }
+            public SemiconductorUi.Repositories.ServoSpeedSettings SaveSpeeds(SemiconductorUi.Repositories.ServoSpeedSettings speeds) => speeds;
+        }
+
+        /// <summary>티칭 위치 창: 연결된 상태에서 몇 칸을 바꾼 모습 (Chamber A, FOUP A)</summary>
+        private static void SnapTeaching(string outDir)
+        {
+            foreach (var (section, file) in new[] { ("Chamber A", "teaching-chamber.png"), ("FOUP A", "teaching-foup.png") })
+            {
+                var model = new TeachingPositionViewModel(new AutoDialogs(),
+                    SemiconductorUi.Models.TeachingPositionsData.CreateDefault(),
+                    SemiconductorUi.Repositories.ServoSpeedSettings.CreateDefault(),
+                    () => new ServoPositionReading("-59120", "806874"), new NullTeachingStore());
+                model.ChamberA.Groups[0].Fields[0].Text = "-59120";
+                model.FoupA.Levels[1].Raise.Text = "700000";
+                model.FoupA.Levels[3].Land.Text = "21l9399";
+                model.SelectedSection = model.Sections.First(s => s.Title == section);
+                SnapDialog(new SemiconductorUi.Wpf.Views.TeachingPositionWindow(model), model, Path.Combine(outDir, file));
+            }
         }
 
         private static void SnapMainWindow(string path, int simulationTicks, Action<MainViewModel> beforeTicks = null, Action<MainViewModel> afterTicks = null)
@@ -255,7 +288,9 @@ namespace SnapshotTool
         public void ShowUserManagement(UserManagementViewModel model) { }
         public bool TryLogin(out string username, out string password) { username = null; password = null; return false; }
         public void ShowUnitDetail(UnitDetailViewModel detail) { }
+        public void ShowConfig(ConfigViewModel model) { }
         public void ShowRecipeManager(RecipeManagerViewModel model) { }
+        public void ShowTeachingPositions(TeachingPositionViewModel model) { }
     }
 
     internal sealed class OfflineDevice : IEthercatDevice

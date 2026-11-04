@@ -1,0 +1,253 @@
+<Window x:Class="SemiconductorUi.Wpf.Views.TeachingPositionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:SemiconductorUi.Wpf.ViewModels"
+        Title="TM 티칭 위치 설정" Width="920" Height="720" MinWidth="860" MinHeight="640" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" Background="{StaticResource Surface}"
+        FontFamily="{StaticResource UiFont}" FontSize="13" Foreground="{StaticResource TextPrimary}">
+    <!-- 원본 Forms.TeachingPositionForm -->
+    <Window.Resources>
+        <Style x:Key="ActionButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+        <Style x:Key="GroupHeader" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource Primary}"/>
+        </Style>
+
+        <!-- 입력 칸 하나: 숫자 + 현재값 버튼 + (바뀌었으면) 저장값 / 문제 -->
+        <DataTemplate x:Key="FieldEditor" DataType="{x:Type vm:TeachingField}">
+            <StackPanel Margin="0,3">
+                <StackPanel Orientation="Horizontal">
+                    <TextBox x:Name="Input" Width="150" Height="28" HorizontalContentAlignment="Right" VerticalContentAlignment="Center"
+                             Padding="4,0" BorderBrush="{StaticResource Border}" FontFamily="Consolas" FontSize="13"
+                             Text="{Binding Text, UpdateSourceTrigger=LostFocus}"/>
+                    <Button x:Name="Read" Content="현재값" Width="62" Height="28" Margin="6,0,0,0" FontSize="12"
+                            Style="{StaticResource SecondaryButton}" Command="{Binding ReadCurrentCommand}"
+                            ToolTip="{Binding ReadCurrentToolTip}" ToolTipService.ShowOnDisabled="True"
+                            IsEnabled="{Binding DataContext.IsConnected, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"/>
+                </StackPanel>
+                <TextBlock x:Name="Note" FontSize="11" Margin="2,2,0,0" Foreground="{StaticResource TextSecondary}"
+                           Text="{Binding BaselineText}" Visibility="Collapsed"/>
+            </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding CanReadCurrent}" Value="False">
+                    <Setter TargetName="Read" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsModified}" Value="True">
+                    <Setter TargetName="Input" Property="BorderBrush" Value="{StaticResource Primary}"/>
+                    <Setter TargetName="Input" Property="Background" Value="#EEF4FB"/>
+                    <Setter TargetName="Note" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding HasWarning}" Value="True">
+                    <Setter TargetName="Input" Property="BorderBrush" Value="{StaticResource Warning}"/>
+                    <Setter TargetName="Input" Property="Background" Value="#FFF4E0"/>
+                    <Setter TargetName="Note" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="Note" Property="Text" Value="{Binding Warning}"/>
+                    <Setter TargetName="Note" Property="Foreground" Value="{StaticResource Warning}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding HasError}" Value="True">
+                    <Setter TargetName="Input" Property="BorderBrush" Value="{StaticResource Danger}"/>
+                    <Setter TargetName="Input" Property="Background" Value="#FBE9EA"/>
+                    <Setter TargetName="Note" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="Note" Property="Text" Value="{Binding Problem}"/>
+                    <Setter TargetName="Note" Property="Foreground" Value="{StaticResource Danger}"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- 오른쪽 내용: 선택한 구역 -->
+        <DataTemplate x:Key="SectionTemplate" DataType="{x:Type vm:TeachingSection}">
+            <StackPanel Margin="24,16,24,20">
+                <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+                <ItemsControl ItemsSource="{Binding Groups}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,0,0,10">
+                                <TextBlock Text="{Binding Header}" Style="{StaticResource GroupHeader}" Margin="0,4,0,4"
+                                           Visibility="{Binding HasHeader, Converter={StaticResource BoolToVisibility}}"/>
+                                <ItemsControl ItemsSource="{Binding Fields}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="200"/>
+                                                    <ColumnDefinition/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Label}" Foreground="{StaticResource TextSecondary}" Margin="0,9,0,0"/>
+                                                <ContentPresenter Grid.Column="1" Content="{Binding}" ContentTemplate="{StaticResource FieldEditor}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- 챔버: 하강 Y 계산 -->
+                <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}" BorderThickness="1"
+                        CornerRadius="4" Padding="10,6" Margin="200,0,0,10" HorizontalAlignment="Left"
+                        Visibility="{Binding HasDescendText, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{Binding DescendText}" FontFamily="Consolas"/>
+                </Border>
+
+                <!-- FOUP: 층별 표 -->
+                <StackPanel Visibility="{Binding HasLevels, Converter={StaticResource BoolToVisibility}}" Margin="0,4,0,10">
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="240"/>
+                            <ColumnDefinition Width="240"/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="층" Style="{StaticResource GroupHeader}"/>
+                        <TextBlock Grid.Column="1" Text="안착 Y (Land)" Style="{StaticResource GroupHeader}"/>
+                        <TextBlock Grid.Column="2" Text="상승 Y (Raise)" Style="{StaticResource GroupHeader}"/>
+                        <TextBlock Grid.Column="3" Text="하강 Y (계산)" Style="{StaticResource GroupHeader}"/>
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Levels}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="240"/>
+                                        <ColumnDefinition Width="240"/>
+                                        <ColumnDefinition/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Name}" Foreground="{StaticResource TextSecondary}" Margin="0,9,0,0"/>
+                                    <ContentPresenter Grid.Column="1" Content="{Binding Land}" ContentTemplate="{StaticResource FieldEditor}"/>
+                                    <ContentPresenter Grid.Column="2" Content="{Binding Raise}" ContentTemplate="{StaticResource FieldEditor}"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding DescendText}" FontFamily="Consolas" Margin="0,9,0,0"
+                                               Foreground="{StaticResource TextSecondary}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <TextBlock Text="{Binding Hint}" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,0"/>
+            </StackPanel>
+        </DataTemplate>
+    </Window.Resources>
+
+    <DockPanel>
+        <!-- 위: 제목과 현재 서보 위치 (계속 갱신) -->
+        <StackPanel DockPanel.Dock="Top" Margin="20,14,20,12">
+            <TextBlock Text="TM 티칭 위치" FontSize="17" FontWeight="Bold"/>
+            <TextBlock Text="챔버·FOUP 좌표와 Home(원점) 티칭값을 편집합니다. 저장하면 TeachingPositions.xml에 기록되고 바로 적용됩니다."
+                       Foreground="{StaticResource TextSecondary}" FontSize="12" Margin="0,4,0,10"/>
+            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}" BorderThickness="1" Height="34">
+                <DockPanel Margin="10,0">
+                    <Ellipse Width="9" Height="9" Margin="0,0,8,0" VerticalAlignment="Center">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="{StaticResource TextSecondary}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsConnected}" Value="True">
+                                        <Setter Property="Fill" Value="{StaticResource Success}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Text="{Binding CurrentPositionText}" FontFamily="Consolas" FontSize="13" VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- 아래: 기본값 복원 | 상태 | 닫기 / 저장 및 적용 -->
+        <Border DockPanel.Dock="Bottom" Height="68" Background="{StaticResource SurfaceAlt}"
+                BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0">
+            <DockPanel Margin="20,0" VerticalAlignment="Center">
+                <Button DockPanel.Dock="Left" Content="기본값 복원" Style="{StaticResource ActionButton}" Width="130"
+                        Command="{Binding ResetCommand}"/>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="닫기" Style="{StaticResource ActionButton}" Width="100" Margin="0,0,10,0" Command="{Binding CloseCommand}"/>
+                    <Button Content="저장 및 적용" Style="{StaticResource PrimaryButton}" Width="140" Height="44" FontWeight="Bold"
+                            Command="{Binding SaveCommand}"/>
+                </StackPanel>
+                <TextBlock Text="{Binding StatusText}" Margin="16,0" VerticalAlignment="Center">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasChanges}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource Primary}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding HasErrors}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource Danger}"/>
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </DockPanel>
+        </Border>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 왼쪽: 구역 목록 (원본 탭). 바뀐 칸 수와 오류 표시 -->
+            <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}" BorderThickness="0,1,1,0">
+                <ListBox ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}" Background="Transparent"
+                         BorderThickness="0" Padding="0,8" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="bd" Padding="16,10" Margin="8,1" CornerRadius="6" Background="Transparent">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="{StaticResource ButtonHover}"/>
+                                            </Trigger>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="{StaticResource Surface}"/>
+                                                <Setter Property="Foreground" Value="{StaticResource Primary}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel>
+                                <Border x:Name="Badge" DockPanel.Dock="Right" MinWidth="20" Height="20" CornerRadius="10" Padding="6,0"
+                                        Background="{StaticResource Primary}">
+                                    <TextBlock Text="{Binding Badge}" Foreground="White" FontSize="11" FontWeight="Bold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Badge}" Value="{x:Null}">
+                                    <Setter TargetName="Badge" Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding HasError}" Value="True">
+                                    <Setter TargetName="Badge" Property="Background" Value="{StaticResource Danger}"/>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" BorderBrush="{StaticResource Border}">
+                <ContentPresenter Content="{Binding SelectedSection}" ContentTemplate="{StaticResource SectionTemplate}"/>
+            </ScrollViewer>
+        </Grid>
+    </DockPanel>
+</Window>
