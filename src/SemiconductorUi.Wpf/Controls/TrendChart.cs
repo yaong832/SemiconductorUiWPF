@@ -31,6 +31,20 @@ namespace SemiconductorUi.Wpf.Controls
             nameof(EmptyText), typeof(string), typeof(TrendChart),
             new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
+        /// <summary>로그 눈금 (압력처럼 760 Torr와 0.005 Torr가 같이 나올 때)</summary>
+        public static readonly DependencyProperty LogScaleProperty = DependencyProperty.Register(
+            nameof(LogScale), typeof(bool), typeof(TrendChart),
+            new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
+        public bool LogScale
+        {
+            get => (bool)GetValue(LogScaleProperty);
+            set => SetValue(LogScaleProperty, value);
+        }
+
+        /// <summary>로그 눈금에서 0 이하 값을 대신할 가장 작은 값</summary>
+        public const double LogFloor = 1e-4;
+
         public IReadOnlyList<TrendSeries> Series
         {
             get => (IReadOnlyList<TrendSeries>)GetValue(SeriesProperty);
@@ -114,19 +128,37 @@ namespace SemiconductorUi.Wpf.Controls
             // 범위
             DateTime t0 = series.Min(s => s.Points[0].t), t1 = series.Max(s => s.Points[s.Points.Count - 1].t);
             if (t1 <= t0) t1 = t0.AddSeconds(1);
-            double vMin = series.Min(s => s.Points.Min(p => p.v)), vMax = series.Max(s => s.Points.Max(p => p.v));
-            NiceRange(ref vMin, ref vMax, out double step);
+            bool log = LogScale;
+            double Map(double v) => log ? Math.Log10(Math.Max(LogFloor, v)) : v;
+            double vMin = series.Min(s => s.Points.Min(p => Map(p.v))), vMax = series.Max(s => s.Points.Max(p => Map(p.v)));
+            double step;
+            if (log)
+            {
+                // 10의 거듭제곱 단위
+                vMin = Math.Floor(vMin);
+                vMax = Math.Ceiling(vMax);
+                if (vMax <= vMin) vMax = vMin + 1;
+                step = 1;
+            }
+            else
+            {
+                NiceRange(ref vMin, ref vMax, out step);
+            }
 
             double X(DateTime t) => plot.Left + (t - t0).TotalMilliseconds / (t1 - t0).TotalMilliseconds * plot.Width;
-            double Y(double v) => plot.Bottom - (v - vMin) / (vMax - vMin) * plot.Height;
+            double Y(double v) => plot.Bottom - (Map(v) - vMin) / (vMax - vMin) * plot.Height;
+            double YAxis(double m) => plot.Bottom - (m - vMin) / (vMax - vMin) * plot.Height;
 
             // 눈금: 값
             string fmt = ValueFormat ?? "0.0";
-            for (double v = vMin; v <= vMax + step / 2; v += step)
+            for (double m = vMin; m <= vMax + step / 2; m += step)
             {
-                double y = Math.Round(Y(v)) + 0.5;
+                double y = Math.Round(YAxis(m)) + 0.5;
                 dc.DrawLine(GridPen, new Point(plot.Left, y), new Point(plot.Right, y));
-                var label = Text(v.ToString(StepFormat(step, fmt), CultureInfo.CurrentCulture), 11, TextSecondary, dpi);
+                string text = log
+                    ? Math.Pow(10, m).ToString(m < 0 ? "0." + new string('0', (int)-m) : "0", CultureInfo.CurrentCulture)
+                    : m.ToString(StepFormat(step, fmt), CultureInfo.CurrentCulture);
+                var label = Text(text, 11, TextSecondary, dpi);
                 dc.DrawText(label, new Point(plot.Left - 6 - label.Width, y - label.Height / 2));
             }
 
@@ -166,9 +198,9 @@ namespace SemiconductorUi.Wpf.Controls
             dc.Pop();
 
             // 마우스 위치의 값
-            if (_mouse is Point m && plot.Contains(m))
+            if (_mouse is Point mouse && plot.Contains(mouse))
             {
-                var at = t0 + TimeSpan.FromMilliseconds((m.X - plot.Left) / plot.Width * span.TotalMilliseconds);
+                var at = t0 + TimeSpan.FromMilliseconds((mouse.X - plot.Left) / plot.Width * span.TotalMilliseconds);
                 var nearest = series.SelectMany(s => s.Points).OrderBy(p => Math.Abs((p.t - at).Ticks)).First().t;
                 double cx = Math.Round(X(nearest)) + 0.5;
                 dc.DrawLine(CursorPen, new Point(cx, plot.Top), new Point(cx, plot.Bottom));
@@ -186,7 +218,7 @@ namespace SemiconductorUi.Wpf.Controls
                 }
                 double tipW = lines.Max(l => l.text.Width) + 30, tipH = lines.Sum(l => l.text.Height) + 12;
                 double tx = cx + 12 + tipW > plot.Right ? cx - 12 - tipW : cx + 12;
-                double ty = Math.Max(plot.Top + 4, Math.Min(plot.Bottom - tipH - 4, m.Y - tipH / 2));
+                double ty = Math.Max(plot.Top + 4, Math.Min(plot.Bottom - tipH - 4, mouse.Y - tipH / 2));
                 dc.DrawRoundedRectangle(TipBack, null, new Rect(tx, ty, tipW, tipH), 4, 4);
                 double ly = ty + 6;
                 foreach (var (text, color) in lines)
