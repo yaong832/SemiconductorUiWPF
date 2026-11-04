@@ -82,6 +82,9 @@ namespace SemiconductorUi.Wpf.ViewModels
 
             Monitoring = new MonitoringViewModel(this, dialogs);
             Trend = new TrendViewModel(Engine);
+            Report = new ReportViewModel(Logs, dialogs,
+                (rows, tag) => LogCsvExporter.Save(rows, tag, DateTime.Now),
+                OpenFolderOf);
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _clockTimer.Tick += (s, e) => Now = DateTime.Now;
@@ -130,6 +133,23 @@ namespace SemiconductorUi.Wpf.ViewModels
         /// <summary>추이 화면 (원본 TrendForm)</summary>
         public TrendViewModel Trend { get; }
 
+        /// <summary>보고서 화면 (원본 ReportForm)</summary>
+        public ReportViewModel Report { get; }
+
+        /// <summary>파일 탐색기에서 파일이 있는 폴더를 열고 그 파일을 고른다.</summary>
+        private void OpenFolderOf(string filePath)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(filePath)) return;
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                _dialogs.Error($"폴더를 열지 못했습니다.\n{ex.Message}", "오류");
+            }
+        }
+
         #endregion
 
         #region 화면 전환
@@ -143,6 +163,7 @@ namespace SemiconductorUi.Wpf.ViewModels
                 {
                     OnPropertyChanged(nameof(IsOperatePage));
                     OnPropertyChanged(nameof(IsTrendPage));
+                    OnPropertyChanged(nameof(IsReportPage));
                     OnPropertyChanged(nameof(IsPlaceholderPage));
                     OnPropertyChanged(nameof(CurrentPageTitle));
                     OnPropertyChanged(nameof(ViewTitle));
@@ -156,8 +177,10 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         public bool IsTrendPage => CurrentPage == NavPage.Trend;
 
+        public bool IsReportPage => CurrentPage == NavPage.Report;
+
         /// <summary>아직 이관하지 않은 메뉴</summary>
-        public bool IsPlaceholderPage => !IsOperatePage && !IsTrendPage;
+        public bool IsPlaceholderPage => !IsOperatePage && !IsTrendPage && !IsReportPage;
 
         public string CurrentPageTitle
         {
