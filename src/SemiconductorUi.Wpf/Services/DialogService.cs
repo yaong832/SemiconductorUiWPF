@@ -14,13 +14,23 @@ namespace SemiconductorUi.Wpf.Services
         public void Warn(string message, string title = "경고") => Show(message, title, MessageBoxImage.Warning);
         public void Error(string message, string title = "오류") => Show(message, title, MessageBoxImage.Error);
 
-        public bool Confirm(string message, string title = "확인")
+        public bool Confirm(string message, string title = "확인") => Confirm(message, title, false);
+
+        public bool Confirm(string message, string title, bool defaultNo)
         {
             var owner = Owner;
+            var image = defaultNo ? MessageBoxImage.Warning : MessageBoxImage.Question;
+            var def = defaultNo ? MessageBoxResult.No : MessageBoxResult.Yes;
             var result = owner != null
-                ? MessageBox.Show(owner, message, title, MessageBoxButton.YesNo, MessageBoxImage.Question)
-                : MessageBox.Show(message, title, MessageBoxButton.YesNo, MessageBoxImage.Question);
+                ? MessageBox.Show(owner, message, title, MessageBoxButton.YesNo, image, def)
+                : MessageBox.Show(message, title, MessageBoxButton.YesNo, image, def);
             return result == MessageBoxResult.Yes;
+        }
+
+        public int? PromptWaferCount(int current, int min, int max)
+        {
+            var window = new WaferCountWindow(current, min, max) { Owner = Owner };
+            return window.ShowDialog() == true ? window.Value : (int?)null;
         }
 
         public bool TryLogin(out string username, out string password)

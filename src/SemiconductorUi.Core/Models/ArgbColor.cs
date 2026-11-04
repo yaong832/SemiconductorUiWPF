@@ -22,6 +22,11 @@ namespace SemiconductorUi.Models
 
         public static ArgbColor FromRgb(int r, int g, int b) => FromArgb(255, r, g, b);
 
+        /// <summary>완전 투명 (원본 Color.Transparent 대신)</summary>
+        public static ArgbColor Transparent => default;
+
+        public bool IsTransparent => A == 0;
+
         private static byte Clamp(int v) => (byte)(v < 0 ? 0 : v > 255 ? 255 : v);
 
         public override string ToString() => $"#{A:X2}{R:X2}{G:X2}{B:X2}";
