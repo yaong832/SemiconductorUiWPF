@@ -51,6 +51,12 @@ namespace SemiconductorUi.Wpf.Services
             window.ShowDialog();
         }
 
+        public void ShowTeachingPositions(TeachingPositionViewModel model)
+        {
+            var window = new TeachingPositionWindow(model) { Owner = Owner };
+            window.ShowDialog();
+        }
+
         private UnitDetailWindow _unitDetail;
 
         public void ShowUnitDetail(UnitDetailViewModel detail)

@@ -464,6 +464,68 @@ namespace SemiconductorUi.Wpf.ViewModels
             }
         }
 
+        /// <summary>
+        /// 원본 Form1.OpenTeachingPositionEditor: TM 티칭 위치 창.
+        /// 원본은 설정 창(관리자 전용)에서만 열리므로 여기서도 관리자만 연다.
+        /// </summary>
+        public void OpenTeachingPositions()
+        {
+            if (!EnsureLoggedIn()) return;
+            if (State.CurrentRole != "관리자")
+            {
+                _dialogs.Warn("티칭 위치 변경은 관리자만 접근할 수 있습니다.", "권한 없음");
+                return;
+            }
+            try
+            {
+                var tm = HardwareManager.TmHardwareController;
+                var initial = tm != null ? tm.Positions.ToData() : TeachingPositionsRepository.Load();
+                var model = new TeachingPositionViewModel(_dialogs, initial, ServoSpeedSettings.FromAppSettings(),
+                    ReadServoPosition, new RepositoryTeachingStore())
+                {
+                    OnApplied = ApplyTeachingPositions,
+                };
+                _dialogs.ShowTeachingPositions(model);
+            }
+            catch (Exception ex)
+            {
+                _dialogs.Error($"티칭 위치 폼 오류: {ex.Message}", "오류");
+                AddLog($"티칭 위치 폼 오류: {ex.Message}", "ERROR");
+            }
+        }
+
+        /// <summary>연결돼 있으면 현재 서보 위치 (X=Axis2, Y=Axis1), 아니면 null</summary>
+        private ServoPositionReading ReadServoPosition() =>
+            IsEthercatConnected && Ethercat != null
+                ? new ServoPositionReading(Ethercat.Axis2_is_PosData(), Ethercat.Axis1_is_PosData())
+                : null;
+
+        /// <summary>원본 Form1.ApplyTeachingPositions: 저장한 티칭값을 런타임 컨트롤러와 시뮬레이션에 반영</summary>
+        private void ApplyTeachingPositions(TeachingPositionsData data)
+        {
+            if (data == null) return;
+            var positions = new TmHardwareController.TmPositionSet();
+            positions.ApplyFrom(data);
+            HardwareManager.TmHardwareController?.Positions.ApplyFrom(data);
+            Engine.SetSimulatedTeachingPositions(positions);
+            AddLog(
+                $"TM 티칭 위치 적용: Home=({positions.Home_X},{positions.Home_Y}), " +
+                $"CA_X={positions.ChamberA_X}, CB_X={positions.ChamberB_X}, CC_X={positions.ChamberC_X}, " +
+                $"FA_X={positions.FoupA_X}, FB_X={positions.FoupB_X}, DescendOffset={positions.DescendOffset}",
+                "INFO");
+        }
+
+        private sealed class RepositoryTeachingStore : ITeachingStore
+        {
+            public void SaveTeaching(TeachingPositionsData data) => TeachingPositionsRepository.Save(data);
+
+            public ServoSpeedSettings SaveSpeeds(ServoSpeedSettings speeds)
+            {
+                ServoSpeedRepository.Save(speeds);
+                return ServoSpeedSettings.FromAppSettings();
+            }
+        }
+
         #endregion
 
         /// <summary>원본 Form1.EnsureLoggedIn</summary>

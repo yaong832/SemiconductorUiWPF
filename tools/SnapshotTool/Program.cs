@@ -38,6 +38,7 @@ namespace SnapshotTool
             // 챔버/FOUP 상세 창 (공정 중)
             failures += Try(() => SnapUnitDetail(outDir, 75, "PMA", "PMB", "FOUP A", "FOUP B"));
             failures += Try(() => SnapRecipeManager(Path.Combine(outDir, "recipe-manager.png")));
+            failures += Try(() => SnapTeaching(outDir));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
         }
@@ -175,6 +176,43 @@ namespace SnapshotTool
             window.Close();
         }
 
+        private sealed class NullTeachingStore : ITeachingStore
+        {
+            public void SaveTeaching(SemiconductorUi.Models.TeachingPositionsData data) { }
+            public SemiconductorUi.Repositories.ServoSpeedSettings SaveSpeeds(SemiconductorUi.Repositories.ServoSpeedSettings speeds) => speeds;
+        }
+
+        /// <summary>티칭 위치 창: 연결된 상태에서 몇 칸을 바꾼 모습 (Chamber A, FOUP A)</summary>
+        private static void SnapTeaching(string outDir)
+        {
+            foreach (var (section, file) in new[] { ("Chamber A", "teaching-chamber.png"), ("FOUP A", "teaching-foup.png") })
+            {
+                var model = new TeachingPositionViewModel(new AutoDialogs(),
+                    SemiconductorUi.Models.TeachingPositionsData.CreateDefault(),
+                    SemiconductorUi.Repositories.ServoSpeedSettings.CreateDefault(),
+                    () => new ServoPositionReading("-59120", "806874"), new NullTeachingStore());
+                model.ChamberA.Groups[0].Fields[0].Text = "-59120";
+                model.FoupA.Levels[1].Raise.Text = "700000";
+                model.FoupA.Levels[3].Land.Text = "21l9399";
+                model.SelectedSection = model.Sections.First(s => s.Title == section);
+                var window = new SemiconductorUi.Wpf.Views.TeachingPositionWindow(model);
+                var root = (FrameworkElement)window.Content;
+                window.Content = null;
+                var host = new Border { Background = window.Background, Child = root, DataContext = model };
+                TextElement.SetFontFamily(host, window.FontFamily);
+                TextElement.SetFontSize(host, window.FontSize);
+                TextElement.SetForeground(host, window.Foreground);
+                foreach (var k in window.Resources.Keys) host.Resources[k] = window.Resources[k];
+                int w = (int)window.Width, h = (int)window.Height - 32;
+                host.Measure(new Size(w, h));
+                host.Arrange(new Rect(0, 0, w, h));
+                Pump(300);
+                host.UpdateLayout();
+                Save(host, w, h, Path.Combine(outDir, file));
+                window.Close();
+            }
+        }
+
         private static void SnapMainWindow(string path, int simulationTicks)
         {
             var vm = CreateMain(simulationTicks);
@@ -227,6 +265,7 @@ namespace SnapshotTool
         public bool TryLogin(out string username, out string password) { username = null; password = null; return false; }
         public void ShowUnitDetail(UnitDetailViewModel detail) { }
         public void ShowRecipeManager(RecipeManagerViewModel model) { }
+        public void ShowTeachingPositions(TeachingPositionViewModel model) { }
     }
 
     internal sealed class OfflineDevice : IEthercatDevice
