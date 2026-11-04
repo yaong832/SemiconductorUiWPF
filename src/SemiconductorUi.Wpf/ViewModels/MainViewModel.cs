@@ -466,8 +466,8 @@ namespace SemiconductorUi.Wpf.ViewModels
                         Engine.SetAlarmThresholdsFromSnapshot(snapshot);
                         AddLog("알람 임계값 설정이 업데이트되었습니다.", "INFO");
                     },
-                    // TODO(5단계): TeachingPositionForm 이관 뒤 연결
-                    OnOpenTeaching = () => _dialogs.Info("TM 티칭 위치 화면은 다음 단계에서 이관됩니다."),
+                    // 원본 configForm.OnOpenTeaching = OpenTeachingPositionEditor
+                    OnOpenTeaching = OpenTeachingPositions,
                 };
                 _dialogs.ShowConfig(model);
             }
