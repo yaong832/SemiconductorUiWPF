@@ -40,6 +40,7 @@ namespace SnapshotTool
             failures += Try(() => SnapConfig(Path.Combine(outDir, "config.png")));
             failures += Try(() => SnapRecipeManager(Path.Combine(outDir, "recipe-manager.png")));
             failures += Try(() => SnapUserManagement(Path.Combine(outDir, "user-management.png")));
+            failures += Try(() => SnapTeaching(outDir));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
         }
@@ -201,6 +202,29 @@ namespace SnapshotTool
             window.Close();
         }
 
+        private sealed class NullTeachingStore : ITeachingStore
+        {
+            public void SaveTeaching(SemiconductorUi.Models.TeachingPositionsData data) { }
+            public SemiconductorUi.Repositories.ServoSpeedSettings SaveSpeeds(SemiconductorUi.Repositories.ServoSpeedSettings speeds) => speeds;
+        }
+
+        /// <summary>티칭 위치 창: 연결된 상태에서 몇 칸을 바꾼 모습 (Chamber A, FOUP A)</summary>
+        private static void SnapTeaching(string outDir)
+        {
+            foreach (var (section, file) in new[] { ("Chamber A", "teaching-chamber.png"), ("FOUP A", "teaching-foup.png") })
+            {
+                var model = new TeachingPositionViewModel(new AutoDialogs(),
+                    SemiconductorUi.Models.TeachingPositionsData.CreateDefault(),
+                    SemiconductorUi.Repositories.ServoSpeedSettings.CreateDefault(),
+                    () => new ServoPositionReading("-59120", "806874"), new NullTeachingStore());
+                model.ChamberA.Groups[0].Fields[0].Text = "-59120";
+                model.FoupA.Levels[1].Raise.Text = "700000";
+                model.FoupA.Levels[3].Land.Text = "21l9399";
+                model.SelectedSection = model.Sections.First(s => s.Title == section);
+                SnapDialog(new SemiconductorUi.Wpf.Views.TeachingPositionWindow(model), model, Path.Combine(outDir, file));
+            }
+        }
+
         private static void SnapMainWindow(string path, int simulationTicks)
         {
             var vm = CreateMain(simulationTicks);
@@ -255,6 +279,7 @@ namespace SnapshotTool
         public void ShowUnitDetail(UnitDetailViewModel detail) { }
         public void ShowConfig(ConfigViewModel model) { }
         public void ShowRecipeManager(RecipeManagerViewModel model) { }
+        public void ShowTeachingPositions(TeachingPositionViewModel model) { }
     }
 
     internal sealed class OfflineDevice : IEthercatDevice
