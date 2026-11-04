@@ -154,6 +154,9 @@
             <Grid Margin="0,10,0,0" Visibility="{Binding IsTrendPage, Converter={StaticResource BoolToVisibility}}">
                 <views:TrendView DataContext="{Binding Trend}"/>
             </Grid>
+            <Grid Margin="0,10,0,0" Visibility="{Binding IsReportPage, Converter={StaticResource BoolToVisibility}}">
+                <views:ReportView DataContext="{Binding Report}"/>
+            </Grid>
             <views:PlaceholderView Margin="0,10,0,0" Title="{Binding CurrentPageTitle}"
                                    Visibility="{Binding IsPlaceholderPage, Converter={StaticResource BoolToVisibility}}"/>
         </Grid>

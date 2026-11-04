@@ -50,6 +50,16 @@ namespace SnapshotTool
                     vm.Engine.StartTrendCapture();
                 },
                 vm => { vm.CurrentPage = NavPage.Trend; vm.Trend.Units[2].IsChecked = false; }));
+            // 보고서 화면: 공정 중 시험 알람을 하나 넣은 로그
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "report-1600x900.png"), 75, null,
+                vm =>
+                {
+                    foreach (var unit in new[] { "PMA", "PMB", "PMC" })
+                    {
+                        if (vm.Monitoring.CanInjectTestAlarm(unit)) { vm.Monitoring.InjectTestAlarm(unit); break; }
+                    }
+                    vm.CurrentPage = NavPage.Report;
+                }));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
         }
