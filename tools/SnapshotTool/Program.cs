@@ -34,6 +34,8 @@ namespace SnapshotTool
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-1600x900.png"), 0));
             // 시뮬레이션 공정을 돌린 중간 화면 (공정 엔진이 그림을 움직이는지 확인)
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-running-1600x900.png"), 75));
+            // 챔버/FOUP 상세 창 (공정 중)
+            failures += Try(() => SnapUnitDetail(outDir, 75, "PMA", "PMB", "FOUP A", "FOUP B"));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
         }
@@ -101,7 +103,7 @@ namespace SnapshotTool
             Save(canvas, w, h, path);
         }
 
-        private static void SnapMainWindow(string path, int simulationTicks)
+        private static MainViewModel CreateMain(int simulationTicks)
         {
             var vm = new MainViewModel(new AutoDialogs(), new SemiconductorUi.Repositories.UserRepositoryImpl(Path.GetTempFileName()), new OfflineDevice());
             if (simulationTicks > 0)
@@ -115,6 +117,40 @@ namespace SnapshotTool
                 vm.Simulation.StopTimer(); // 실제 타이머 대신 직접 틱을 넣는다
                 for (int i = 0; i < simulationTicks; i++) vm.Engine.OnSimulationTick();
             }
+            return vm;
+        }
+
+        private static void SnapUnitDetail(string outDir, int simulationTicks, params string[] unitKeys)
+        {
+            var vm = CreateMain(simulationTicks);
+            foreach (var key in unitKeys)
+            {
+                vm.Monitoring.UnitDetail.Show(key);
+                var window = new SemiconductorUi.Wpf.Views.UnitDetailWindow();
+                var root = (FrameworkElement)window.Content;
+                window.Content = null;
+                var host = new Border { Background = window.Background, Child = root, DataContext = vm.Monitoring.UnitDetail, Width = window.Width };
+                TextElement.SetFontFamily(host, window.FontFamily);
+                TextElement.SetFontSize(host, window.FontSize);
+                foreach (var k in window.Resources.Keys) host.Resources[k] = window.Resources[k];
+                // 바인딩과 목록 칸이 만들어진 뒤의 높이로 다시 잰다
+                host.Measure(new Size(window.Width, double.PositiveInfinity));
+                host.Arrange(new Rect(host.DesiredSize));
+                Pump(300);
+                host.InvalidateMeasure();
+                host.Measure(new Size(window.Width, double.PositiveInfinity));
+                var size = host.DesiredSize;
+                host.Arrange(new Rect(size));
+                host.UpdateLayout();
+                string name = key.Replace(" ", "").ToLowerInvariant();
+                Save(host, (int)Math.Ceiling(size.Width), (int)Math.Ceiling(size.Height), Path.Combine(outDir, $"unit-detail-{name}.png"));
+                window.ForceClose();
+            }
+        }
+
+        private static void SnapMainWindow(string path, int simulationTicks)
+        {
+            var vm = CreateMain(simulationTicks);
             // 창을 띄우면 CI 화면 크기로 줄어들기 때문에, 띄우지 않고 내용만 떼어 1600x900으로 배치한다.
             var window = new SemiconductorUi.Wpf.MainWindow();
             var root = (FrameworkElement)window.Content;
@@ -162,6 +198,7 @@ namespace SnapshotTool
         public bool Confirm(string message, string title, bool defaultNo) => true;
         public int? PromptWaferCount(int current, int min, int max) => max;
         public bool TryLogin(out string username, out string password) { username = null; password = null; return false; }
+        public void ShowUnitDetail(UnitDetailViewModel detail) { }
     }
 
     internal sealed class OfflineDevice : IEthercatDevice

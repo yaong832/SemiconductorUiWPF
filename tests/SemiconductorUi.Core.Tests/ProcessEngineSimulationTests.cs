@@ -231,7 +231,7 @@ namespace SemiconductorUi.Tests
             Assert.IsTrue(sawMoveToPickup);
         }
 
-        private sealed class FakeHost : IProcessHost
+        internal sealed class FakeHost : IProcessHost
         {
             public List<string> Logs { get; } = new List<string>();
             public List<string> Messages { get; } = new List<string>();
@@ -257,7 +257,7 @@ namespace SemiconductorUi.Tests
             public void RefreshServoStatus() { }
         }
 
-        private sealed class ManualTimer : ITickTimer
+        internal sealed class ManualTimer : ITickTimer
         {
             public event EventHandler Tick { add { } remove { } }
             public int Interval { get; set; }
@@ -266,7 +266,7 @@ namespace SemiconductorUi.Tests
             public void Stop() => Enabled = false;
         }
 
-        private sealed class OfflineDevice : IEthercatDevice
+        internal sealed class OfflineDevice : IEthercatDevice
         {
             public bool CIFX_50RE_Connect() => false;
             public void CIFX_50RE_Disconnect() { }

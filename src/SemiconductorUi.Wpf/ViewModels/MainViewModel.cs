@@ -26,6 +26,7 @@ namespace SemiconductorUi.Wpf.ViewModels
         private readonly IUserRepository _users;
         private readonly DispatcherTimer _clockTimer;
         private readonly DispatcherTimer _hardwareUiTimer;
+        private readonly DispatcherTimer _simLampBlinkTimer;
         private readonly Dispatcher _dispatcher;
 
         private NavPage _currentPage = NavPage.Operate;
@@ -57,9 +58,11 @@ namespace SemiconductorUi.Wpf.ViewModels
             LoginCommand = new RelayCommand(Login, () => !State.IsLoggedIn);
             LogoutCommand = new RelayCommand(Logout, () => State.IsLoggedIn);
             UserManagementCommand = new RelayCommand(OpenUserManagement, () => State.IsLoggedIn);
-            ConnectEthercatCommand = new RelayCommand(ConnectEthercat, () => !IsEthercatConnected);
-            DisconnectEthercatCommand = new RelayCommand(DisconnectEthercat, () => IsEthercatConnected);
-            ServoOnCommand = new RelayCommand(() => _ = ServoOnAsync(), () => IsEthercatConnected && !_servoBusy);
+            // 장비를 움직이기 시작하는 버튼(EtherCAT 연결/해제, 서보 ON)은 로그인해야 누를 수 있다.
+            // 서보 OFF는 정지 동작이라 로그인하지 않아도 언제든 누를 수 있게 둔다 (원본 484e8e0).
+            ConnectEthercatCommand = new RelayCommand(ConnectEthercat, () => State.IsLoggedIn && !IsEthercatConnected);
+            DisconnectEthercatCommand = new RelayCommand(DisconnectEthercat, () => State.IsLoggedIn && IsEthercatConnected);
+            ServoOnCommand = new RelayCommand(() => _ = ServoOnAsync(), () => State.IsLoggedIn && IsEthercatConnected && !_servoBusy);
             ServoOffCommand = new RelayCommand(ServoOff, () => IsEthercatConnected && !_servoBusy);
             HomeCommand = new RelayCommand(() => Engine.HomeButton(), () => IsEthercatConnected && !_servoBusy);
             NavigateCommand = new RelayCommand(p => { if (p is NavPage page) CurrentPage = page; });
@@ -74,6 +77,14 @@ namespace SemiconductorUi.Wpf.ViewModels
             _hardwareUiTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
             _hardwareUiTimer.Tick += (s, e) => Engine.OnHardwareUiTick();
             _hardwareUiTimer.Start();
+
+            // 원본 SimLampBlinkTimer: 시뮬레이션 모드 챔버 램프 점멸을 1초 틱 사이에도 시간 기준으로 바꾼다
+            _simLampBlinkTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ProcessEngine.SimLampBlinkRefreshMs) };
+            _simLampBlinkTimer.Tick += (s, e) =>
+            {
+                if (Engine.TickSimLampBlink()) Monitoring.UpdateScene();
+            };
+            _simLampBlinkTimer.Start();
 
             State.CurrentUser = "Guest";
             State.CurrentRole = "없음";
@@ -570,6 +581,7 @@ namespace SemiconductorUi.Wpf.ViewModels
                     OnPropertyChanged(nameof(UserInitial));
                     OnPropertyChanged(nameof(RoleText));
                     OnPropertyChanged(nameof(IsAdmin));
+                    if (!State.IsLoggedIn) Monitoring?.CloseUnitDetail();
                     RelayCommand.Refresh();
                     break;
                 case nameof(CoreState.CurrentFoupExchangeState):
@@ -676,6 +688,7 @@ namespace SemiconductorUi.Wpf.ViewModels
         {
             _clockTimer.Stop();
             _hardwareUiTimer.Stop();
+            _simLampBlinkTimer.Stop();
             Engine.Dispose();
             Simulation.Dispose();
             HardwareManager.Dispose();
