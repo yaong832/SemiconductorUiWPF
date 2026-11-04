@@ -41,6 +41,15 @@ namespace SnapshotTool
             failures += Try(() => SnapRecipeManager(Path.Combine(outDir, "recipe-manager.png")));
             failures += Try(() => SnapUserManagement(Path.Combine(outDir, "user-management.png")));
             failures += Try(() => SnapTeaching(outDir));
+            // 추이 화면: 1초 간격 시각으로 150틱 수집
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "trend-1600x900.png"), 150,
+                vm =>
+                {
+                    var t = new DateTime(2026, 11, 4, 9, 0, 0);
+                    vm.Engine.TrendClock = () => t = t.AddSeconds(1);
+                    vm.Engine.StartTrendCapture();
+                },
+                vm => { vm.CurrentPage = NavPage.Trend; vm.Trend.Units[2].IsChecked = false; }));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
         }
@@ -108,7 +117,7 @@ namespace SnapshotTool
             Save(canvas, w, h, path);
         }
 
-        private static MainViewModel CreateMain(int simulationTicks)
+        private static MainViewModel CreateMain(int simulationTicks, Action<MainViewModel> beforeTicks = null)
         {
             var vm = new MainViewModel(new AutoDialogs(), new SemiconductorUi.Repositories.UserRepositoryImpl(Path.GetTempFileName()), new OfflineDevice());
             if (simulationTicks > 0)
@@ -124,6 +133,7 @@ namespace SnapshotTool
                 vm.Engine.WaferLoadingButton();
                 vm.Engine.StartButton();
                 vm.Simulation.StopTimer(); // 실제 타이머 대신 직접 틱을 넣는다
+                beforeTicks?.Invoke(vm);
                 for (int i = 0; i < simulationTicks; i++) vm.Engine.OnSimulationTick();
             }
             return vm;
@@ -225,9 +235,10 @@ namespace SnapshotTool
             }
         }
 
-        private static void SnapMainWindow(string path, int simulationTicks)
+        private static void SnapMainWindow(string path, int simulationTicks, Action<MainViewModel> beforeTicks = null, Action<MainViewModel> afterTicks = null)
         {
-            var vm = CreateMain(simulationTicks);
+            var vm = CreateMain(simulationTicks, beforeTicks);
+            afterTicks?.Invoke(vm);
             // 창을 띄우면 CI 화면 크기로 줄어들기 때문에, 띄우지 않고 내용만 떼어 1600x900으로 배치한다.
             var window = new SemiconductorUi.Wpf.MainWindow();
             var root = (FrameworkElement)window.Content;

@@ -81,6 +81,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             });
 
             Monitoring = new MonitoringViewModel(this, dialogs);
+            Trend = new TrendViewModel(Engine);
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _clockTimer.Tick += (s, e) => Now = DateTime.Now;
@@ -126,6 +127,9 @@ namespace SemiconductorUi.Wpf.ViewModels
         public LoggerService Logger { get; }
         public MonitoringViewModel Monitoring { get; }
 
+        /// <summary>추이 화면 (원본 TrendForm)</summary>
+        public TrendViewModel Trend { get; }
+
         #endregion
 
         #region 화면 전환
@@ -138,13 +142,22 @@ namespace SemiconductorUi.Wpf.ViewModels
                 if (SetProperty(ref _currentPage, value))
                 {
                     OnPropertyChanged(nameof(IsOperatePage));
+                    OnPropertyChanged(nameof(IsTrendPage));
+                    OnPropertyChanged(nameof(IsPlaceholderPage));
                     OnPropertyChanged(nameof(CurrentPageTitle));
                     OnPropertyChanged(nameof(ViewTitle));
+                    // 원본 NavigateToSection(Trend): 들어갈 때 수집 시작
+                    if (value == NavPage.Trend) Trend.OnShown();
                 }
             }
         }
 
         public bool IsOperatePage => CurrentPage == NavPage.Operate;
+
+        public bool IsTrendPage => CurrentPage == NavPage.Trend;
+
+        /// <summary>아직 이관하지 않은 메뉴</summary>
+        public bool IsPlaceholderPage => !IsOperatePage && !IsTrendPage;
 
         public string CurrentPageTitle
         {
@@ -745,6 +758,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             // 원본 TimerEventHandlers.SimulationTimer_Tick
             Engine.OnSimulationTick();
             Monitoring.OnTick();
+            if (IsTrendPage) Trend.Refresh();
             OnPropertyChanged(nameof(IsEmergencyStopped));
         }
 

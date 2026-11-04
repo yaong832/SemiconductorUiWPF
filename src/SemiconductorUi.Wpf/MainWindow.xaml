@@ -151,8 +151,11 @@
             </Grid>
 
             <!-- 그 밖의 메뉴: 이후 단계에서 화면 이관 -->
+            <Grid Margin="0,10,0,0" Visibility="{Binding IsTrendPage, Converter={StaticResource BoolToVisibility}}">
+                <views:TrendView DataContext="{Binding Trend}"/>
+            </Grid>
             <views:PlaceholderView Margin="0,10,0,0" Title="{Binding CurrentPageTitle}"
-                                   Visibility="{Binding IsOperatePage, Converter={StaticResource EnumVisible}, ConverterParameter=False}"/>
+                                   Visibility="{Binding IsPlaceholderPage, Converter={StaticResource BoolToVisibility}}"/>
         </Grid>
 
         <!-- 맨 아래 메뉴 줄 (원본 BuildShellBottomBar): 화면 메뉴 / 현재 상태 / 시스템 -->

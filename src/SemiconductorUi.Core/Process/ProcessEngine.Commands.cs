@@ -604,7 +604,7 @@ namespace SemiconductorUi.Process
                 UpdateTmVisualization();
             }
 
-            // 원본은 여기서 추이(Trend) 샘플과 PM 환경 표를 갱신한다. 5단계(추이/PM 상세 화면)에서 연결한다.
+            CaptureTrendSampleTick(TrendClock());
             UpdateSimulationUi();
         }
 
