@@ -423,8 +423,7 @@ namespace SemiconductorUi.Wpf.ViewModels
                 _dialogs.Warn("사용자 관리는 관리자만 접근할 수 있습니다.", "권한 없음");
                 return;
             }
-            // TODO(4단계): UserManagementForm → UserManagementWindow 이관
-            _dialogs.Info("사용자 관리 화면은 다음 단계에서 이관됩니다.");
+            _dialogs.ShowUserManagement(new UserManagementViewModel(_dialogs, _users, State.CurrentUser));
         }
 
         #region 레시피
