@@ -75,6 +75,7 @@ namespace SemiconductorUi.Wpf.ViewModels
                 {
                     // 원본: 레시피 메뉴는 화면을 바꾸지 않고 레시피 관리 창(모달)을 연다
                     if (page == NavPage.Recipe) OpenRecipeManager();
+                    else if (page == NavPage.Config) OpenConfig();
                     else CurrentPage = page;
                 }
             });
@@ -433,6 +434,46 @@ namespace SemiconductorUi.Wpf.ViewModels
             {
                 Monitoring.SelectedRecipeName = !string.IsNullOrEmpty(selected) && RecipeNames.Contains(selected) ? selected : null;
             }
+        }
+
+        /// <summary>원본 Form1.NavigateToSection(AppSection.Config): 관리자만 알람 기준 설정 창을 연다</summary>
+        private void OpenConfig()
+        {
+            if (!EnsureLoggedIn()) return;
+            if (State.CurrentRole != "관리자")
+            {
+                _dialogs.Warn("설정 변경은 관리자만 접근할 수 있습니다.", "권한 없음");
+                return;
+            }
+            try
+            {
+                var model = new ConfigViewModel(_dialogs, Engine.GetAlarmThresholdsSnapshot(), SaveThresholds)
+                {
+                    OnSaved = snapshot =>
+                    {
+                        Engine.SetAlarmThresholdsFromSnapshot(snapshot);
+                        AddLog("알람 임계값 설정이 업데이트되었습니다.", "INFO");
+                    },
+                    // TODO(5단계): TeachingPositionForm 이관 뒤 연결
+                    OnOpenTeaching = () => _dialogs.Info("TM 티칭 위치 화면은 다음 단계에서 이관됩니다."),
+                };
+                _dialogs.ShowConfig(model);
+            }
+            catch (Exception ex)
+            {
+                _dialogs.Error($"설정 폼을 여는 중 오류가 발생했습니다.\n{ex.Message}", "오류");
+                AddLog($"Config 폼 오류: {ex.Message}", "ERROR");
+            }
+        }
+
+        /// <summary>저장 후 파일에서 다시 읽어 주요 값이 같은지 확인 (원본 ConfigForm.btnSave_Click)</summary>
+        private static bool SaveThresholds(EnvThresholdSnapshot thresholds)
+        {
+            ConfigRepository.Save(thresholds);
+            var saved = ConfigRepository.Load();
+            return saved != null
+                && Math.Abs(saved.TempWarn - thresholds.TempWarn) < 0.001
+                && Math.Abs(saved.TempAlarm - thresholds.TempAlarm) < 0.001;
         }
 
         /// <summary>원본 NavigationEventHandlers.ButtonNavRecipe_Click: 관리자만 레시피 관리 창을 연다</summary>

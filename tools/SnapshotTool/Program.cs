@@ -37,6 +37,7 @@ namespace SnapshotTool
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-running-1600x900.png"), 75));
             // 챔버/FOUP 상세 창 (공정 중)
             failures += Try(() => SnapUnitDetail(outDir, 75, "PMA", "PMB", "FOUP A", "FOUP B"));
+            failures += Try(() => SnapConfig(Path.Combine(outDir, "config.png")));
             failures += Try(() => SnapRecipeManager(Path.Combine(outDir, "recipe-manager.png")));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
@@ -154,6 +155,27 @@ namespace SnapshotTool
             }
         }
 
+        private static void SnapConfig(string path)
+        {
+            var model = new ConfigViewModel(new AutoDialogs(), ConfigViewModel.CreateDefault(), t => true);
+            // 경고가 알람보다 큰 칸이 빨갛게 보이는지
+            model.Gas.Fields[0].Value = 20;
+            var window = new SemiconductorUi.Wpf.Views.ConfigWindow(model);
+            var root = (FrameworkElement)window.Content;
+            window.Content = null;
+            var host = new Border { Background = window.Background, Child = root, DataContext = model };
+            TextElement.SetFontFamily(host, window.FontFamily);
+            TextElement.SetFontSize(host, window.FontSize);
+            TextElement.SetForeground(host, window.Foreground);
+            foreach (var k in window.Resources.Keys) host.Resources[k] = window.Resources[k];
+            int w = (int)window.Width, h = (int)window.Height - 32;
+            host.Measure(new Size(w, h));
+            host.Arrange(new Rect(0, 0, w, h));
+            Pump(300);
+            host.UpdateLayout();
+            Save(host, w, h, path);
+        }
+
         private static void SnapRecipeManager(string path)
         {
             var model = new RecipeManagerViewModel(new AutoDialogs(), SemiconductorUi.Repositories.RecipeRepository.LoadAll, list => { });
@@ -226,6 +248,7 @@ namespace SnapshotTool
         public int? PromptWaferCount(int current, int min, int max) => max;
         public bool TryLogin(out string username, out string password) { username = null; password = null; return false; }
         public void ShowUnitDetail(UnitDetailViewModel detail) { }
+        public void ShowConfig(ConfigViewModel model) { }
         public void ShowRecipeManager(RecipeManagerViewModel model) { }
     }
 
