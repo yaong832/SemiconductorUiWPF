@@ -1,5 +1,10 @@
 using System;
 using System.Windows.Input;
+using System.Windows.Media;
+using SemiconductorUi.Controls;
+using SemiconductorUi.Models;
+using SemiconductorUi.Process;
+using SemiconductorUi.Wpf.Controls;
 using SemiconductorUi.Wpf.Infrastructure;
 using SemiconductorUi.Wpf.Services;
 using ProcessState = SemiconductorUi.ViewModels.MainFormViewModel.ProcessState;
@@ -8,8 +13,8 @@ using WaferLoadStateType = SemiconductorUi.ViewModels.MainFormViewModel.WaferLoa
 namespace SemiconductorUi.Wpf.ViewModels
 {
     /// <summary>
-    /// 운전 > 모니터링 탭. 원본 ProcessEventHandlers / WaferEventHandlers의 제어 패널 동작을 옮긴다.
-    /// 공정 진행(TM 이송, 챔버 공정) 자체는 '공정 시퀀스 이관' 단계에서 연결한다.
+    /// 운전 > 모니터링 탭. 제어 패널 버튼은 Core 공정 엔진(원본 ProcessEventHandlers)으로 넘기고,
+    /// 엔진 상태를 장비 그림(EquipmentScene)으로 옮긴다.
     /// </summary>
     public sealed class MonitoringViewModel : ObservableObject
     {
@@ -21,14 +26,14 @@ namespace SemiconductorUi.Wpf.ViewModels
             _shell = shell;
             _dialogs = dialogs;
 
-            StartCommand = new RelayCommand(Start, () => State.IsLoggedIn);
+            StartCommand = new RelayCommand(() => Run(Engine.StartButton), () => State.IsLoggedIn && !Engine.IsHardwareInitInProgress);
             PauseCommand = new RelayCommand(Pause, () => State.IsLoggedIn);
-            EmergencyStopCommand = new RelayCommand(EmergencyStop);
-            ResetAlarmCommand = new RelayCommand(ResetAlarm, () => State.IsLoggedIn);
-            ResetProcessCommand = new RelayCommand(ResetProcess, () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
-            ToggleFoupMountCommand = new RelayCommand(ToggleFoupMount, () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
-            WaferLoadingCommand = new RelayCommand(() => SetWaferLoadState(WaferLoadStateType.Loading), () => State.IsLoggedIn && State.IsFoupMounted);
-            WaferUnloadingCommand = new RelayCommand(() => SetWaferLoadState(WaferLoadStateType.Unloading), () => State.IsLoggedIn && State.IsFoupMounted);
+            EmergencyStopCommand = new RelayCommand(() => { Engine.EmergencyStopButton(); AfterCommand(); });
+            ResetAlarmCommand = new RelayCommand(() => Run(Engine.ResetAlarmButton), () => State.IsLoggedIn);
+            ResetProcessCommand = new RelayCommand(() => Run(Engine.ResetProcessButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
+            ToggleFoupMountCommand = new RelayCommand(() => Run(Engine.ToggleFoupMountButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
+            WaferLoadingCommand = new RelayCommand(() => Run(Engine.WaferLoadingButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
+            WaferUnloadingCommand = new RelayCommand(() => Run(Engine.WaferUnloadingButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
             NotYetPortedCommand = new RelayCommand(p => _shell.AddLog($"'{p}' 기능은 다음 단계에서 이관됩니다.", "INFO"));
 
             State.PropertyChanged += (s, e) =>
@@ -38,7 +43,106 @@ namespace SemiconductorUi.Wpf.ViewModels
                 OnPropertyChanged(nameof(PauseText));
                 OnPropertyChanged(nameof(ElapsedText));
             };
+            UpdateScene();
         }
+
+        private ProcessEngine Engine => _shell.Engine;
+
+        /// <summary>로그인 확인 뒤 엔진 버튼 동작 실행 (원본 EnsureLoggedIn → 핸들러)</summary>
+        private void Run(Action action)
+        {
+            if (!_shell.EnsureLoggedIn()) return;
+            action();
+            AfterCommand();
+        }
+
+        private void AfterCommand()
+        {
+            OnPropertyChanged(nameof(ElapsedText));
+            UpdateScene();
+            RelayCommand.Refresh();
+        }
+
+        private void Pause()
+        {
+            // 일시 정지 중에는 같은 버튼이 '재개'가 된다 (원본은 시작 버튼으로 재개)
+            if (_shell.Simulation.IsRunning && _shell.Simulation.IsPaused)
+            {
+                Run(Engine.StartButton);
+                return;
+            }
+            Run(Engine.PauseButton);
+        }
+
+        #region 장비 캔버스 / 램프
+
+        // 원본 램프 색 (Color.ForestGreen/Goldenrod/Firebrick)
+        private static readonly Color ForestGreen = Color.FromRgb(34, 139, 34);
+        private static readonly Color Goldenrod = Color.FromRgb(218, 165, 32);
+        private static readonly Color Firebrick = Color.FromRgb(178, 34, 34);
+
+        /// <summary>장비 캔버스에 그릴 상태</summary>
+        public EquipmentScene Scene { get; } = new EquipmentScene();
+
+        private static Color ToColor(ArgbColor c) => Color.FromArgb(c.A, c.R, c.G, c.B);
+
+        /// <summary>공정 엔진 상태를 장비 캔버스 상태로 옮긴다 (원본 UpdateSimulationUi의 그림 부분).</summary>
+        public void UpdateScene()
+        {
+            var engine = Engine;
+            if (engine == null) return;
+            var s = Scene;
+
+            s.LampGreen = engine.MainLampGreen.HasValue ? ToColor(engine.MainLampGreen.Value) : Rendering.Palette.LampOff;
+            s.LampYellow = engine.MainLampYellow ? Goldenrod : Rendering.Palette.LampOff;
+            s.LampRed = engine.MainLampRed ? Firebrick : Rendering.Palette.LampOff;
+
+            int capacity = AppSettings.MaxFoupCapacity;
+            s.FoupA.Capacity = capacity;
+            s.FoupB.Capacity = capacity;
+            s.FoupA.Mounted = State.IsFoupAMounted;
+            s.FoupB.Mounted = State.IsFoupBMounted;
+            engine.Foups.GetFoupDisplayCounts(out int foupA, out int foupB);
+            s.FoupA.WaferCount = foupA;
+            s.FoupB.WaferCount = foupB;
+
+            foreach (var region in new[] { EquipmentRegion.ChamberA, EquipmentRegion.ChamberB, EquipmentRegion.ChamberC })
+            {
+                var c = s.Chambers[region];
+                c.ValveOpen = State.IsDoorOpen(region) ? 1 : 0;
+                c.LampColor = engine.IsChamberLampOn(region) ? ForestGreen : Rendering.Palette.LampOff;
+                var wafer = engine.GetChamberWaferColor(region);
+                c.HasWafer = wafer.HasValue;
+                if (wafer.HasValue) c.WaferColor = ToColor(wafer.Value);
+            }
+
+            bool hardware = _shell.IsEthercatConnected;
+            var bladeColor = engine.GetBladeWaferColor();
+            s.TmTarget = State.TmVisualTarget;
+            s.TmCarrying = bladeColor.HasValue;
+            if (bladeColor.HasValue) s.TmWaferColor = ToColor(bladeColor.Value);
+            s.TmExtension = State.TmBladeExtensionFactor;
+            s.IsSimulation = !hardware;
+
+            var info = engine.BuildTmSideView();
+            var side = s.SideView;
+            side.Target = info.Target;
+            side.Height = info.Height;
+            side.Extension = info.Extension;
+            side.VacuumOn = info.VacuumOn;
+            side.WaferOnBlade = info.WaferOnBlade;
+            if (info.WaferColor.HasValue) side.WaferColor = ToColor(info.WaferColor.Value);
+            for (int i = 0; i < side.FoupLevels.Length && i < info.FoupLevels.Length; i++) side.FoupLevels[i] = info.FoupLevels[i];
+            side.ChamberHasWafer = info.ChamberHasWafer;
+            side.IsHardware = info.IsHardware;
+            if (info.Positions != null) s.TeachingPositions = info.Positions;
+
+            s.NotifyChanged();
+            OnPropertyChanged(nameof(TmStatusText));
+            OnPropertyChanged(nameof(ProcessDetailText));
+        }
+
+        #endregion
 
         public MainViewModel Shell => _shell;
 
@@ -54,191 +158,32 @@ namespace SemiconductorUi.Wpf.ViewModels
         public ICommand WaferUnloadingCommand { get; }
         public ICommand NotYetPortedCommand { get; }
 
-        public string FoupMountText => State.IsFoupMounted ? "FOUP 장착됨" : "FOUP 미장착";
+        public string FoupMountText => State.IsFoupAMounted && State.IsFoupBMounted ? "FOUP 장착됨" : "FOUP 미장착";
 
-        public string WaferLoadText
-        {
-            get
-            {
-                switch (State.WaferLoadState)
-                {
-                    case WaferLoadStateType.Loading: return "로딩 상태";
-                    case WaferLoadStateType.Unloading: return "언로딩 상태";
-                    default: return "대기";
-                }
-            }
-        }
+        public string WaferLoadText => Engine?.GetWaferLoadStateDisplay() ?? "대기";
 
         public string PauseText => State.CurrentProcessState == ProcessState.Paused ? "재개" : "일시 정지";
 
         public string ElapsedText => TimeSpan.FromSeconds(_shell.Simulation.ElapsedSeconds).ToString(@"hh\:mm\:ss");
 
-        /// <summary>공정 타이머 Tick (UI 스레드)</summary>
+        /// <summary>원본 labelSummaryTMStatus ("상태: 이동(픽업) → FOUP A")</summary>
+        public string TmStatusText => Engine?.GetTmStatusText() ?? "대기";
+
+        /// <summary>원본 StatusProcessDetail ("공정 상태: 진행 중 | 완료 1/5")</summary>
+        public string ProcessDetailText => State.StatusProcessDetail;
+
+        /// <summary>장비 그림에서 챔버/FOUP 클릭 (원본: PmDetailForm/EquipmentDetailForm 열기)</summary>
+        public void OpenRegionDetail(EquipmentRegion region)
+        {
+            // TODO(5단계): PmDetailForm / EquipmentDetailForm 이관
+            _shell.AddLog($"{region} 상세 화면은 다음 단계에서 이관됩니다.", "INFO");
+        }
+
+        /// <summary>공정 타이머 Tick (UI 스레드, 엔진 처리 뒤)</summary>
         internal void OnTick()
         {
             OnPropertyChanged(nameof(ElapsedText));
-        }
-
-        private void Start()
-        {
-            if (!_shell.EnsureLoggedIn()) return;
-
-            if (_shell.IsEmergencyStopped)
-            {
-                _dialogs.Warn("비상정지 중입니다.\n\n알람 리셋으로 비상정지를 해제하고, 서보 ON과 원점복귀를 한 뒤 시작하세요.", "비상정지 중");
-                return;
-            }
-
-            var sim = _shell.Simulation;
-            if (sim.IsRunning && !sim.IsPaused)
-            {
-                _dialogs.Info("이미 공정이 진행 중입니다.");
-                return;
-            }
-
-            if (!sim.IsRunning)
-            {
-                if (!State.IsFoupAMounted || !State.IsFoupBMounted)
-                {
-                    _dialogs.Warn("FOUP A/B 장착 상태를 확인해 주세요.", "준비 미완료");
-                    return;
-                }
-                if (State.WaferLoadState != WaferLoadStateType.Loading)
-                {
-                    _dialogs.Warn("웨이퍼를 '로딩' 상태로 전환한 뒤 공정을 시작할 수 있습니다.", "준비 미완료");
-                    return;
-                }
-                if (!_shell.IsEthercatConnected &&
-                    !_dialogs.Confirm("EtherCAT가 연결되지 않았습니다.\n시뮬레이션 모드로 동작합니다.\n계속하시겠습니까?", "EtherCAT 미연결"))
-                {
-                    return;
-                }
-            }
-
-            State.HasAlarm = false;
-            if (sim.IsRunning && sim.IsPaused)
-            {
-                sim.Resume(_shell.IsEthercatConnected);
-                _shell.SetProcessState(ProcessState.Running, "공정을 재개합니다.");
-            }
-            else
-            {
-                sim.Start(_shell.IsEthercatConnected);
-                _shell.SetProcessState(ProcessState.Running, "공정을 시작합니다.");
-            }
             RelayCommand.Refresh();
-        }
-
-        private void Pause()
-        {
-            if (!_shell.EnsureLoggedIn()) return;
-            var sim = _shell.Simulation;
-
-            if (sim.IsRunning && sim.IsPaused)
-            {
-                Start();
-                return;
-            }
-            if (!sim.IsRunning)
-            {
-                _dialogs.Info("진행 중인 공정이 없습니다.");
-                return;
-            }
-
-            if (_shell.HardwareManager.IsTmHardwareInitialized)
-            {
-                _shell.AddLog("하드웨어 일시정지: 새 명령 중지 (서보 ON 유지)", "WARN");
-            }
-            sim.Pause();
-            _shell.SetProcessState(ProcessState.Paused, "공정을 일시 정지했습니다.");
-            RelayCommand.Refresh();
-        }
-
-        private void EmergencyStop()
-        {
-            _shell.ExecuteEmergencyStop("메인 화면 긴급 정지 버튼");
-            _dialogs.Warn(
-                "비상정지가 실행되었습니다.\n\n" +
-                "• 서보: OFF (두 축)\n" +
-                "• 진공: 유지 (웨이퍼를 잡고 있으면 그대로)\n" +
-                "• 실린더, 도어: 현재 상태 유지\n" +
-                "• 장비 명령: 해제 전까지 차단\n\n" +
-                "다시 움직이려면:\n" +
-                "1. 장비 상태 확인\n" +
-                "2. 알람 리셋으로 비상정지 해제\n" +
-                "3. 서보 ON → 원점복귀",
-                "비상정지");
-            RelayCommand.Refresh();
-        }
-
-        private void ResetAlarm()
-        {
-            if (!_shell.EnsureLoggedIn()) return;
-
-            bool emergencyStopCleared = false;
-            if (_shell.IsEmergencyStopped)
-            {
-                bool yes = _dialogs.Confirm(
-                    "비상정지를 해제하시겠습니까?\n\n" +
-                    "해제하기 전에 확인하세요:\n" +
-                    "• 장비 근처에 사람이 없는지\n" +
-                    "• 웨이퍼, 블레이드, 실린더 위치\n\n" +
-                    "해제해도 서보는 꺼진 채로 남습니다.\n" +
-                    "해제한 뒤 서보 ON → 원점복귀를 다시 하세요.",
-                    "비상정지 해제");
-                if (!yes) return;
-
-                _shell.Ethercat.ClearEmergencyStop();
-                emergencyStopCleared = true;
-                _shell.AddLog("비상정지 해제 (서보 OFF 유지, 서보 ON과 원점복귀 필요)", "WARN");
-                // TODO(공정 시퀀스 이관 단계): ResetServoFaultsAfterEmergencyStopCleared 이관
-            }
-
-            if (!State.HasAlarm && !emergencyStopCleared)
-            {
-                _dialogs.Info("해제할 알람이 없습니다.");
-                return;
-            }
-
-            State.ClearAllChamberAlarms();
-            State.HasAlarm = false;
-            State.VerificationAlarmDismissed = true;
-            _shell.ClearAlarmBanner();
-            if (State.CurrentProcessState == ProcessState.Error)
-            {
-                _shell.SetProcessState(ProcessState.Idle, "알람을 리셋했습니다.");
-            }
-            RelayCommand.Refresh();
-        }
-
-        private void ResetProcess()
-        {
-            if (!_shell.EnsureLoggedIn()) return;
-            if (!_dialogs.Confirm("공정을 초기 상태로 리셋하시겠습니까?", "공정 리셋")) return;
-
-            // TODO(공정 시퀀스 이관 단계): 원점복귀(ResetHomingSequence), FOUP/챔버 상태 초기화 연결
-            _shell.Simulation.Reset();
-            State.WaferLoadState = WaferLoadStateType.None;
-            _shell.SetProcessState(ProcessState.Idle, "공정을 리셋했습니다.");
-            OnPropertyChanged(nameof(ElapsedText));
-            RelayCommand.Refresh();
-        }
-
-        private void ToggleFoupMount()
-        {
-            bool mount = !State.IsFoupMounted;
-            State.IsFoupMounted = mount;
-            State.IsFoupAMounted = mount;
-            State.IsFoupBMounted = mount;
-            if (!mount) State.WaferLoadState = WaferLoadStateType.None;
-            _shell.AddLog(mount ? "FOUP A/B 장착" : "FOUP A/B 해제", "INFO");
-            RelayCommand.Refresh();
-        }
-
-        private void SetWaferLoadState(WaferLoadStateType state)
-        {
-            State.WaferLoadState = state;
-            _shell.AddLog($"웨이퍼 {(state == WaferLoadStateType.Loading ? "로딩" : "언로딩")} 상태로 전환", "INFO");
         }
     }
 }

@@ -4,6 +4,7 @@
         xmlns:vm="clr-namespace:SemiconductorUi.Wpf.ViewModels"
         xmlns:views="clr-namespace:SemiconductorUi.Wpf.Views"
         xmlns:conv="clr-namespace:SemiconductorUi.Wpf.Infrastructure"
+        xmlns:ctl="clr-namespace:SemiconductorUi.Wpf.Controls"
         Title="웨이퍼 이송 장비 - SemiconductorUi" Width="1600" Height="940" MinWidth="1280" MinHeight="760"
         WindowStartupLocation="CenterScreen" WindowState="Maximized"
         Background="{StaticResource AppBack}" FontFamily="{StaticResource UiFont}">
@@ -116,7 +117,7 @@
                     </Border>
                     <TextBlock Text="{Binding ClockText}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"
                                Margin="14,0,0,0" FontWeight="SemiBold"/>
-                    <!-- 신호탑 램프는 장비 시각화 단계에서 추가 -->
+                    <ctl:TowerLamp Scene="{Binding Monitoring.Scene}" Margin="8,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>

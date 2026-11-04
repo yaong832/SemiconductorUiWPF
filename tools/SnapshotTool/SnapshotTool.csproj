@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- CI에서 화면 그림을 PNG로 떠서 아티팩트로 올리는 도구 (실장비 없이 모양 확인용) -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SemiconductorUi.Wpf\SemiconductorUi.Wpf.csproj" />
+    <ProjectReference Include="..\..\src\SemiconductorUi.Core\SemiconductorUi.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="IEG3268_Dll">
+      <HintPath>..\..\lib\IEG3268_Dll.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
