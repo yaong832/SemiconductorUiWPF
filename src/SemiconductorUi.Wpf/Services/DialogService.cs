@@ -45,6 +45,12 @@ namespace SemiconductorUi.Wpf.Services
             return ok;
         }
 
+        public void ShowRecipeManager(RecipeManagerViewModel model)
+        {
+            var window = new RecipeManagerWindow(model) { Owner = Owner };
+            window.ShowDialog();
+        }
+
         private UnitDetailWindow _unitDetail;
 
         public void ShowUnitDetail(UnitDetailViewModel detail)
