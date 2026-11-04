@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -36,6 +37,7 @@ namespace SnapshotTool
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-running-1600x900.png"), 75));
             // 챔버/FOUP 상세 창 (공정 중)
             failures += Try(() => SnapUnitDetail(outDir, 75, "PMA", "PMB", "FOUP A", "FOUP B"));
+            failures += Try(() => SnapUserManagement(Path.Combine(outDir, "user-management.png")));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
         }
@@ -148,6 +150,31 @@ namespace SnapshotTool
             }
         }
 
+        private static void SnapUserManagement(string path)
+        {
+            var repo = new SemiconductorUi.Repositories.UserRepositoryImpl(Path.GetTempFileName());
+            var users = repo.EnsureSeedDefaults();
+            users.Add(new SemiconductorUi.Models.User { Username = "operator1", Password = SemiconductorUi.PasswordHelper.HashPassword("x"), Role = "작업자" });
+            repo.SaveAll(users);
+            var model = new UserManagementViewModel(new AutoDialogs(), repo, "admin");
+            model.Selected = model.Users.FirstOrDefault(u => u.Username == "operator1");
+            var window = new SemiconductorUi.Wpf.Views.UserManagementWindow(model);
+            var root = (FrameworkElement)window.Content;
+            window.Content = null;
+            var host = new Border { Background = window.Background, Child = root, DataContext = model };
+            TextElement.SetFontFamily(host, window.FontFamily);
+            TextElement.SetFontSize(host, window.FontSize);
+            TextElement.SetForeground(host, window.Foreground);
+            foreach (var k in window.Resources.Keys) host.Resources[k] = window.Resources[k];
+            int w = (int)window.Width, h = (int)window.Height - 32;
+            host.Measure(new Size(w, h));
+            host.Arrange(new Rect(0, 0, w, h));
+            Pump(300);
+            host.UpdateLayout();
+            Save(host, w, h, path);
+            window.Close();
+        }
+
         private static void SnapMainWindow(string path, int simulationTicks)
         {
             var vm = CreateMain(simulationTicks);
@@ -197,6 +224,7 @@ namespace SnapshotTool
         public bool Confirm(string message, string title = "확인") => true;
         public bool Confirm(string message, string title, bool defaultNo) => true;
         public int? PromptWaferCount(int current, int min, int max) => max;
+        public void ShowUserManagement(UserManagementViewModel model) { }
         public bool TryLogin(out string username, out string password) { username = null; password = null; return false; }
         public void ShowUnitDetail(UnitDetailViewModel detail) { }
     }
