@@ -1,4 +1,5 @@
 using System;
+using SemiconductorUi.Services;
 using System.Collections.Generic;
 using System.Linq;
 using SemiconductorUi.Controllers;
@@ -403,6 +404,7 @@ namespace SemiconductorUi.Process
             if (tempDiff > t.TempAlarmDiffC)
             {
                 AddLogMessage($"{label} 온도 이탈(알람): PV={pvTemp:0.0}°C, SV={svTemp:0.0}°C (Δ={tempDiff:0.0}°C)", "ALARM");
+                RecordEnvironmentAlarm(unitKey, AlarmCodes.EnvTemperature, $"PV={pvTemp:0.0}°C, SV={svTemp:0.0}°C (Δ={tempDiff:0.0}°C)");
                 hasAlarmInChamber = true;
             }
             else if (tempDiff > t.TempWarnDiffC)
@@ -435,6 +437,7 @@ namespace SemiconductorUi.Process
                 if (isAlarm)
                 {
                     AddLogMessage($"{label} 압력 이탈(알람): PV={pvPress:0.###} Torr, SV={svPress:0.###} Torr (Δ={pressDiff:0.###} Torr)", "ALARM");
+                    RecordEnvironmentAlarm(unitKey, AlarmCodes.EnvPressure, $"PV={pvPress:0.###} Torr, SV={svPress:0.###} Torr (Δ={pressDiff:0.###} Torr)");
                     hasAlarmInChamber = true;
                 }
                 else if (isWarn)
@@ -450,6 +453,7 @@ namespace SemiconductorUi.Process
                 if (rfRatio > t.RfAlarmRatio)
                 {
                     AddLogMessage($"{label} RF 이탈(알람): PV={pvRf:0} W, SV={svRf:0} W", "ALARM");
+                    RecordEnvironmentAlarm(unitKey, AlarmCodes.EnvRf, $"PV={pvRf:0} W, SV={svRf:0} W");
                     hasAlarmInChamber = true;
                 }
                 else if (rfRatio > t.RfWarnRatio)
@@ -459,14 +463,14 @@ namespace SemiconductorUi.Process
             }
 
             // 가스 평가 (각각)
-            hasAlarmInChamber |= EvaluateGas(label, "NF3", svNF3, pvNF3);
-            hasAlarmInChamber |= EvaluateGas(label, "O2", svO2, pvO2);
-            hasAlarmInChamber |= EvaluateGas(label, "CF4", svCF4, pvCF4);
+            hasAlarmInChamber |= EvaluateGas(unitKey, label, "NF3", svNF3, pvNF3);
+            hasAlarmInChamber |= EvaluateGas(unitKey, label, "O2", svO2, pvO2);
+            hasAlarmInChamber |= EvaluateGas(unitKey, label, "CF4", svCF4, pvCF4);
 
             return hasAlarmInChamber;
         }
 
-        private bool EvaluateGas(string label, string gasName, double sv, double pv)
+        private bool EvaluateGas(string unitKey, string label, string gasName, double sv, double pv)
         {
             var t = AlarmThresholds;
             if (sv > 0)
@@ -475,6 +479,7 @@ namespace SemiconductorUi.Process
                 if (diff > t.GasAlarmAbsSccm)
                 {
                     AddLogMessage($"{label} {gasName} 유량 이탈(알람): PV={pv:0.0} sccm, SV={sv:0.0} sccm", "ALARM");
+                    RecordEnvironmentAlarm(unitKey, AlarmCodes.GasFlow(gasName), $"PV={pv:0.0} sccm, SV={sv:0.0} sccm");
                     return true;
                 }
                 if (diff > t.GasWarnAbsSccm)
@@ -487,6 +492,7 @@ namespace SemiconductorUi.Process
             if (pv > t.GasLeakAlarmSccm)
             {
                 AddLogMessage($"{label} {gasName} 누설 의심(알람): PV={pv:0.0} sccm (SV=0)", "ALARM");
+                RecordEnvironmentAlarm(unitKey, AlarmCodes.GasLeak(gasName), $"PV={pv:0.0} sccm (SV=0)");
                 return true;
             }
             if (pv > t.GasLeakWarnSccm)

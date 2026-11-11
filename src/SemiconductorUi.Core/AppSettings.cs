@@ -48,6 +48,12 @@ namespace SemiconductorUi
         /// </summary>
         public static int MaxLogEntries => GetSetting("MaxLogEntries", 200);
 
+        /// <summary>알람 이력 폴더 (Alarm_yyyyMMdd.csv). 비우면 문서\SemiconductorUi_Logs\Alarms</summary>
+        public static string AlarmHistoryFolder => GetSetting("AlarmHistoryFolder", "");
+
+        /// <summary>알람 이력 보관 일수 (오늘 포함). 0이면 자동 삭제하지 않는다.</summary>
+        public static int AlarmHistoryRetentionDays => GetSetting("AlarmHistoryRetentionDays", 365);
+
         /// <summary>로그를 한 줄씩 날짜별 파일(Log_yyyyMMdd.csv)에 바로 쓸지 여부</summary>
         public static bool LogFileEnabled => GetSetting("LogFileEnabled", true);
 
@@ -393,6 +399,19 @@ namespace SemiconductorUi
         /// 원점복귀 상태 확인 주기
         /// </summary>
         public static int HomingPollingIntervalMs => GetSetting("HomingPollingIntervalMs", 100);
+
+        #endregion
+
+        #region EtherCAT 통신 감시 (원본 684c244, 1단계: 기록만)
+
+        /// <summary>EtherCAT 통신 감시 주기 (ms). 0이면 감시하지 않는다. 1단계: 기록만 한다.</summary>
+        public static int EthercatWatchdogIntervalMs => GetSetting("EthercatWatchdogIntervalMs", 1000);
+
+        /// <summary>이상이 연속 몇 번 나오면 "통신 이상"으로 기록할지</summary>
+        public static int EthercatWatchdogFailCount => GetSetting("EthercatWatchdogFailCount", 2);
+
+        /// <summary>통신 감시 요약을 몇 분마다 로그에 남길지 (0 = 남기지 않음)</summary>
+        public static int EthercatWatchdogSummaryMinutes => GetSetting("EthercatWatchdogSummaryMinutes", 10);
 
         #endregion
 

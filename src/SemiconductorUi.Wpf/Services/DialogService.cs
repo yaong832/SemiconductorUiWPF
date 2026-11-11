@@ -93,6 +93,30 @@ namespace SemiconductorUi.Wpf.Services
             _ioMonitor.Activate();
         }
 
+        private AlarmHistoryWindow _alarmHistory;
+
+        public void ShowAlarmHistory(AlarmHistoryViewModel model)
+        {
+            var main = Application.Current?.MainWindow;
+            if (_alarmHistory == null)
+            {
+                _alarmHistory = new AlarmHistoryWindow { DataContext = model };
+                if (main != null && main.IsLoaded)
+                {
+                    _alarmHistory.Owner = main;
+                    main.Closing += (s, e) => _alarmHistory?.ForceClose();
+                }
+                model.PropertyChanged += (s, e) =>
+                {
+                    if (e.PropertyName == nameof(AlarmHistoryViewModel.IsOpen) && !model.IsOpen) _alarmHistory?.Hide();
+                };
+            }
+
+            if (!_alarmHistory.IsVisible) _alarmHistory.Show();
+            if (_alarmHistory.WindowState == WindowState.Minimized) _alarmHistory.WindowState = WindowState.Normal;
+            _alarmHistory.Activate();
+        }
+
         private UnitDetailWindow _unitDetail;
 
         public void ShowUnitDetail(UnitDetailViewModel detail)
