@@ -48,6 +48,15 @@ namespace SemiconductorUi
         /// </summary>
         public static int MaxLogEntries => GetSetting("MaxLogEntries", 200);
 
+        /// <summary>로그를 한 줄씩 날짜별 파일(Log_yyyyMMdd.csv)에 바로 쓸지 여부</summary>
+        public static bool LogFileEnabled => GetSetting("LogFileEnabled", true);
+
+        /// <summary>날짜별 로그 폴더. 비우면 문서\SemiconductorUi_Logs\Daily</summary>
+        public static string LogFolder => GetSetting("LogFolder", "");
+
+        /// <summary>날짜별 로그 보관 일수 (오늘 포함). 0이면 자동 삭제하지 않는다.</summary>
+        public static int LogRetentionDays => GetSetting("LogRetentionDays", 90);
+
         /// <summary>
         /// FOUP 최대 용량
         /// </summary>

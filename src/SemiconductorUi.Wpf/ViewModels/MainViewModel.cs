@@ -39,7 +39,7 @@ namespace SemiconductorUi.Wpf.ViewModels
         private bool _servoBusy;
         private DateTime _now = DateTime.Now;
 
-        public MainViewModel(IDialogService dialogs, IUserRepository users, IEthercatDevice ethercat)
+        public MainViewModel(IDialogService dialogs, IUserRepository users, IEthercatDevice ethercat, LoggerService logger = null)
         {
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
             _users = users ?? throw new ArgumentNullException(nameof(users));
@@ -49,7 +49,10 @@ namespace SemiconductorUi.Wpf.ViewModels
             State.PropertyChanged += (s, e) => OnCoreStateChanged(e.PropertyName);
 
             Ethercat = ethercat;
-            Logger = new LoggerService();
+            Logger = logger ?? new LoggerService();
+            // 파일 쓰기 실패/복구 안내는 화면 로그에만 보여 준다 (파일 기록기 잠금 밖에서)
+            Logger.FileStateNotice += (level, text) =>
+                _dispatcher.BeginInvoke(new Action(() => ShowLogOnly(new LogEntry(DateTime.Now, level, text))));
             HardwareManager = new HardwareManager(ethercat, AddLog);
             Simulation = new SimulationController(new DispatcherTickTimer(), OnSimulationTick);
 
@@ -396,7 +399,13 @@ namespace SemiconductorUi.Wpf.ViewModels
             }
 
             var entry = new LogEntry(DateTime.Now, level, message);
-            Logger.Log(message, entry.Level);
+            Logger.Log(entry.Time, message, entry.Level);
+            ShowLogOnly(entry);
+        }
+
+        /// <summary>화면 로그 목록에만 넣는다 (파일에는 쓰지 않음)</summary>
+        private void ShowLogOnly(LogEntry entry)
+        {
             Logs.Insert(0, entry);
             int max = Math.Max(50, AppSettings.MaxLogEntries);
             while (Logs.Count > max) Logs.RemoveAt(Logs.Count - 1);
