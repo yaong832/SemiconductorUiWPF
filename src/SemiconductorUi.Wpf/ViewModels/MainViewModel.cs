@@ -355,11 +355,15 @@ namespace SemiconductorUi.Wpf.ViewModels
                     OnPropertyChanged(nameof(IsTrendPage));
                     OnPropertyChanged(nameof(IsReportPage));
                     OnPropertyChanged(nameof(IsMaintenancePage));
+                    OnPropertyChanged(nameof(IsSystemPage));
                     OnPropertyChanged(nameof(IsPlaceholderPage));
                     OnPropertyChanged(nameof(CurrentPageTitle));
                     OnPropertyChanged(nameof(ViewTitle));
                     // 원본 NavigateToSection(Trend): 들어갈 때 수집 시작
                     if (value == NavPage.Trend) Trend.OnShown();
+                    // 시스템 화면은 보이는 동안만 1초마다 고친다 (원본은 메시지 상자 한 번)
+                    if (previous == NavPage.System) SystemInfo.OnHidden();
+                    if (value == NavPage.System) SystemInfo.OnShown();
                     if (value == NavPage.Report && IsChangeHistoryTab) ChangeHistoryView.Refresh();
                     UpdateWaferHistoryTabAttach();
                     // I/O 모니터는 보이는 동안만 읽는다
@@ -377,8 +381,16 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         public bool IsMaintenancePage => CurrentPage == NavPage.Maintenance;
 
+        public bool IsSystemPage => CurrentPage == NavPage.System;
+
+        private SystemInfoViewModel _systemInfo;
+
+        /// <summary>시스템 화면 (원본 Form1.ShowSystemInfoSummary)</summary>
+        public SystemInfoViewModel SystemInfo =>
+            _systemInfo ?? (_systemInfo = new SystemInfoViewModel(this, OpenInExplorer));
+
         /// <summary>아직 이관하지 않은 메뉴</summary>
-        public bool IsPlaceholderPage => !IsOperatePage && !IsTrendPage && !IsReportPage && !IsMaintenancePage;
+        public bool IsPlaceholderPage => !IsOperatePage && !IsTrendPage && !IsReportPage && !IsMaintenancePage && !IsSystemPage;
 
         public string CurrentPageTitle
         {
