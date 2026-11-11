@@ -54,6 +54,16 @@ namespace SnapshotTool
             failures += Try(() => SnapAlarmHistory(Path.Combine(outDir, "alarm-history.png")));
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-alarms-1600x900.png"), 0, null,
                 vm => { vm.UseAlarmHistory(SampleAlarmHistory()); vm.AddLog("PMA 온도 이탈(알람): PV=31.0°C, SV=23.0°C (Δ=8.0°C)", "ALARM"); }));
+            // 보고서 화면: 공정 중 시험 알람을 하나 넣은 로그
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "report-1600x900.png"), 75, null,
+                vm =>
+                {
+                    foreach (var unit in new[] { "PMA", "PMB", "PMC" })
+                    {
+                        if (vm.Monitoring.CanInjectTestAlarm(unit)) { vm.Monitoring.InjectTestAlarm(unit); break; }
+                    }
+                    vm.CurrentPage = NavPage.Report;
+                }));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
         }
