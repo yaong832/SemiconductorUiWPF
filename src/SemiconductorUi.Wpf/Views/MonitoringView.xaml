@@ -83,7 +83,7 @@
                             <Button Content="{Binding PauseText}" Style="{StaticResource PanelButton}" Command="{Binding PauseCommand}"/>
                             <Button Content="알람 리셋" Style="{StaticResource PanelButton}" Command="{Binding ResetAlarmCommand}"/>
                             <Button Content="공정 리셋" Style="{StaticResource PanelButton}" Command="{Binding ResetProcessCommand}"/>
-                            <Button Content="장비 제어" Style="{StaticResource PanelButton}" Command="{Binding NotYetPortedCommand}" CommandParameter="장비 제어"/>
+                            <Button Content="장비 제어" Style="{StaticResource PanelButton}" Command="{Binding EquipmentControlCommand}"/>
                             <Button Content="원점복귀" Style="{StaticResource PanelButton}" Command="{Binding Shell.HomeCommand}"/>
                         </UniformGrid>
                         <Button Content="긴급 정지" Style="{StaticResource DangerButton}" Margin="3,6,3,0" Height="48" FontSize="15"

@@ -47,12 +47,14 @@ namespace SemiconductorUi.Hardware
         /// <summary>
         /// 상하 → 좌우 순서로 원점복귀합니다. 성공하면 null, 실패하면 이유를 돌려줍니다.
         /// 비상정지가 걸리면 EmergencyStopActiveException을 그대로 던집니다.
+        /// onStage는 각 축 원점복귀 명령 직전에 1(상하), 2(좌우)로 불립니다 (장비 제어 창 상태 표시용).
         /// </summary>
-        public string Run(Action<string> log)
+        public string Run(Action<string> log, Action<int> onStage = null)
         {
             string reason = CheckCylinderRetracted("상하 원점복귀");
             if (reason != null) return reason;
 
+            onStage?.Invoke(1);
             log?.Invoke("공정 리셋: 원점복귀 1단계 - 상하(Axis1)");
             _device.Axis1_UD_Homming();
             if (!WaitHomeDone(() => _device.Axis1_Status("HOME_D")))
@@ -63,6 +65,7 @@ namespace SemiconductorUi.Hardware
             reason = CheckCylinderRetracted("좌우 원점복귀");
             if (reason != null) return reason;
 
+            onStage?.Invoke(2);
             log?.Invoke("공정 리셋: 상하 원점복귀 완료 - 2단계: 좌우(Axis2)");
             _device.Axis2_LR_Homming();
             if (!WaitHomeDone(() => _device.Axis2_Status("HOME_D")))

@@ -1089,6 +1089,53 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         #endregion
 
+        #region 장비 제어 창 (원본 NavigationEventHandlers.ButtonEquipmentControl_Click)
+
+        /// <summary>
+        /// 장비 직접 제어 창을 연다 (모달). 창에서 장비를 움직이면 메인 화면 그림(도어, 램프, 서보 상태)을 맞춘다.
+        /// </summary>
+        public void OpenEquipmentControl()
+        {
+            if (!EnsureLoggedIn()) return;
+            try
+            {
+                var control = new EquipmentManualControl(Ethercat, () => IsEthercatConnected,
+                    (message, title, kind) => ((IProcessHost)this).ShowMessage(message, title, kind),
+                    action => _dispatcher.BeginInvoke(action),
+                    DispatcherOnce.Schedule,
+                    () => DateTime.Now,
+                    AddLog)
+                {
+                    IsAutoProcessActive = () => Engine.IsAutoProcessActive,
+                    IsHomedBySequence = () => Engine.IsHomedBySequence,
+                    OnDoorStateChanged = (region, isOpen) => { Engine.SetDoorVisual(region, isOpen); Monitoring?.UpdateScene(); },
+                    OnChamberLampStateChanged = (region, isOn) => { Engine.SetChamberLampVisual(region, isOn); Monitoring?.UpdateScene(); },
+                    OnMainLampStateChanged = (red, yellow, green) => { Engine.SetMainLampVisual(red, yellow, green); Monitoring?.UpdateScene(); },
+                    OnServoStateChanged = servoIsOn =>
+                    {
+                        Engine.ServoOn = servoIsOn; // 서보 상태 플래그
+                        if (!servoIsOn) HardwareManager.ResetTmHardwareInitialized(); // 서보 OFF 시 원점복귀 상태 초기화
+                        Engine.UpdateServoStatusLabel();
+                        NotifyServo();
+                    },
+                    OnHomingRequested = () => { Engine.MarkHomedByManualControl(); NotifyServo(); },
+                    OnTeachingRequested = OpenTeachingPositions,
+                    OnEmergencyStopRequested = () => ExecuteEmergencyStop("장비 제어 창 긴급 정지 버튼"),
+                };
+                using (var model = new EquipmentControlViewModel(control, Ethercat))
+                {
+                    _dialogs.ShowEquipmentControl(model);
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLog($"Equipment Control 폼 오류: {ex.Message}", "ERROR");
+                _dialogs.Error($"Equipment Control 폼을 여는 중 오류가 발생했습니다.\r\n{ex.Message}", "오류");
+            }
+        }
+
+        #endregion
+
         #region 공정 상태
 
         /// <summary>원본 Form1.SetProcessState</summary>

@@ -100,6 +100,8 @@ namespace SnapshotTool
                 }));
             // 유지보수 카운터 별도 창: 배기 점검 완료를 묻는 중
             failures += Try(() => SnapCounterWindow(Path.Combine(outDir, "maintenance-counters-window.png")));
+            // 장비 직접 제어 창: 연결된 장비, Chamber B 도어 열림, Chamber A 램프 30초 타이머가 12초 지난 모습
+            failures += Try(() => SnapEquipmentControl(Path.Combine(outDir, "equipment-control.png")));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
         }
@@ -438,6 +440,31 @@ namespace SnapshotTool
                 SemiconductorUi.Services.ChangeHistory.Record(category, entries, at);
         }
 
+        private static void SnapEquipmentControl(string path)
+        {
+            var device = new DemoIoDevice();
+            var t = new DateTime(2026, 11, 11, 15, 0, 0);
+            var control = new SemiconductorUi.Hardware.EquipmentManualControl(device, () => true, (m, title, kind) => { }, a => a(),
+                (ms, callback) => new NoopDisposable(), () => t)
+            {
+                IsAutoProcessActive = () => false,
+                IsHomedBySequence = () => true,
+            };
+            control.SetChamberDoor(EquipmentRegion.ChamberB, true);
+            control.StartTimedAction(SemiconductorUi.Hardware.EquipmentManualControl.TimedKey(EquipmentRegion.ChamberA, false), 30);
+            t = t.AddSeconds(12);
+            var model = new EquipmentControlViewModel(control, device, () => t);
+            model.Poll();
+            // 창 높이를 늘려 스크롤 없이 모든 그룹이 보이게 찍는다
+            SnapDialog(new SemiconductorUi.Wpf.Views.EquipmentControlWindow(model) { Height = 1090 }, model, path);
+            model.Dispose();
+        }
+
+        private sealed class NoopDisposable : IDisposable
+        {
+            public void Dispose() { }
+        }
+
         private static void SnapIoMonitor(string path)
         {
             var device = new DemoIoDevice();
@@ -589,6 +616,7 @@ namespace SnapshotTool
         public void ShowMaintenanceCounters(MaintenanceCounterViewModel model) { }
         public void ShowAlarmHistory(AlarmHistoryViewModel model) { }
         public void ShowWaferHistory(WaferHistoryViewModel model) { }
+        public void ShowEquipmentControl(EquipmentControlViewModel model) { }
     }
 
     /// <summary>I/O 모니터 스냅샷용: 공정 대기 중 모습 (녹색 램프, 도어 닫힘, 실린더 후진, 진공 ON)</summary>
@@ -608,6 +636,7 @@ namespace SnapshotTool
         public override ushort GetStatusWord(int axis) => axis == 1 ? (ushort)0x1637 : (ushort)0x02B7;
         public override string Axis1_is_PosData() => "806874";
         public override string Axis2_is_PosData() => "-59120";
+        public override void Digital_Output(int numbering, bool value) => Outputs[numbering] = value;
     }
 
     /// <summary>연결되지 않은 장비 (스냅샷용)</summary>
@@ -619,7 +648,7 @@ namespace SnapshotTool
         public void ReadData_Timer_Start() { }
         public virtual bool Digital_Input(int numbering) => false;
         public virtual bool GetDigitalOutput(int numbering) => false;
-        public void Digital_Output(int numbering, bool value) { }
+        public virtual void Digital_Output(int numbering, bool value) { }
         public void Axis1_ON() { }
         public void Axis1_OFF() { }
         public virtual string Axis1_is_PosData() => "-";
