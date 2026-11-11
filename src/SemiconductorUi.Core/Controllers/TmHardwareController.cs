@@ -297,6 +297,19 @@ namespace SemiconductorUi.Controllers
         public long CurrentAxis2Position => _currentAxis2Pos;
 
         /// <summary>
+        /// 마지막으로 명령한 Axis1(상하) 목표 위치 (공정 루프의 위치 기반 완료 판정용)
+        /// </summary>
+        public long? CommandedAxis1Target => _commandedAxis1Target;
+
+        /// <summary>
+        /// 마지막으로 명령한 Axis2(회전) 목표 위치. Axis1 단독 이동이면 null
+        /// </summary>
+        public long? CommandedAxis2Target => _commandedAxis2Target;
+
+        private long? _commandedAxis1Target;
+        private long? _commandedAxis2Target;
+
+        /// <summary>
         /// 위치 설정
         /// </summary>
         public TmPositionSet Positions
@@ -629,6 +642,8 @@ namespace SemiconductorUi.Controllers
 
                 _ethercat.Axis1_UD_Move_Send();
                 _ethercat.Axis2_LR_Move_Send();
+                _commandedAxis1Target = targetY;
+                _commandedAxis2Target = targetX;
 
                 if (!waitForCompletion)
                 {
@@ -712,6 +727,8 @@ namespace SemiconductorUi.Controllers
 
                 _ethercat.Axis1_UD_POS_Update(targetY);
                 _ethercat.Axis1_UD_Move_Send();
+                _commandedAxis1Target = targetY;
+                _commandedAxis2Target = null;
 
                 if (!waitForCompletion)
                 {

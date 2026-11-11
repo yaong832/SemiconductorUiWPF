@@ -152,7 +152,6 @@ namespace SemiconductorUi.Process
         };
         private readonly Dictionary<EquipmentRegion, int> _chamberLampBlinkCounters = new Dictionary<EquipmentRegion, int>();
         private readonly Dictionary<EquipmentRegion, bool> _chamberLampBlinkStates = new Dictionary<EquipmentRegion, bool>();
-        private const int CHAMBER_LAMP_BLINK_INTERVAL = 10; // 10번 갱신마다 깜빡임 (원본과 같음)
 
         /// <summary>챔버 램프가 켜져 있는지 (공정 중 녹색, 완료 후 깜빡임)</summary>
         public bool IsChamberLampOn(EquipmentRegion region) => _chamberLampOn.TryGetValue(region, out var on) && on;
@@ -327,6 +326,21 @@ namespace SemiconductorUi.Process
 
                 bool cylinderExtended = CheckTmCylinderExtended();
                 bool cylinderRetracted = CheckTmCylinderRetracted();
+
+                // 실린더에 보낸 명령(출력 12 전진, 13 후진). 전진 센서는 끝까지 나가야 켜지므로
+                // 명령만 보고 먼저 펴기 시작합니다. 화면 표시에만 씁니다.
+                bool extendCommanded = false;
+                bool retractCommanded = false;
+                try
+                {
+                    extendCommanded = EtherCAT_M != null && EtherCAT_M.GetDigitalOutput(12);
+                    retractCommanded = EtherCAT_M != null && EtherCAT_M.GetDigitalOutput(13);
+                }
+                catch
+                {
+                    // 출력값을 못 읽으면 센서 값만으로 그립니다.
+                }
+
                 if (cylinderExtended && !cylinderRetracted)
                 {
                     TmBladeExtensionFactor = 1.3f;
@@ -334,6 +348,10 @@ namespace SemiconductorUi.Process
                 else if (cylinderRetracted && !cylinderExtended)
                 {
                     TmBladeExtensionFactor = 0.55f;
+                }
+                else if (extendCommanded && !retractCommanded && !cylinderExtended)
+                {
+                    TmBladeExtensionFactor = 1.2f;
                 }
                 else
                 {

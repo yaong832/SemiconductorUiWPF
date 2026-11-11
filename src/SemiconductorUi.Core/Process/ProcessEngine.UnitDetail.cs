@@ -126,16 +126,29 @@ namespace SemiconductorUi.Process
 
             if (chamber.CurrentWafer != null && detail.StepTimeTotal > 0)
             {
-                detail.StepProgress = Math.Max(0, Math.Min(100,
-                    (int)Math.Round(detail.StepTimeCurrent * 100.0 / detail.StepTimeTotal)));
-                detail.ActiveWaferText = $"Wafer #{chamber.CurrentWafer.Id} : {detail.StepProgress}% ({detail.StepTimeCurrent}/{detail.StepTimeTotal}s)";
-                if (chamber.RemainingSeconds <= 0 && chamber.PickupScheduled)
+                // 웨이퍼 문구는 챔버가 실제로 어느 단계인지에 맞춥니다 (원본 328e1bf).
+                // 반입 직후 도어가 닫히는 동안은 아직 공정 시간이 흐르지 않으므로 "공정 진행 중"이 아닙니다.
+                int waferId = chamber.CurrentWafer.Id;
+                if (ChamberStatusTexts.IsAwaitingProcessStart(chamber.StatusText))
                 {
-                    detail.StepMessage = $"TM 픽업 대기 (Wafer #{chamber.CurrentWafer.Id})";
+                    detail.StepProgress = 0;
+                    detail.ActiveWaferText = $"Wafer #{waferId} : 공정 시작 전";
+                    detail.StepMessage = $"#{waferId} 반입됨 · 공정 시작 전";
+                }
+                else if (chamber.RemainingSeconds <= 0)
+                {
+                    detail.StepProgress = 100;
+                    detail.ActiveWaferText = $"Wafer #{waferId} : 공정 완료 ({detail.StepTimeTotal}/{detail.StepTimeTotal}s)";
+                    detail.StepMessage = chamber.PickupScheduled
+                        ? $"#{waferId} 공정 완료 · TM 픽업 대기"
+                        : $"#{waferId} 공정 완료 · 반출 대기";
                 }
                 else
                 {
-                    detail.StepMessage = $"공정 진행 중 (#{chamber.CurrentWafer.Id})";
+                    detail.StepProgress = Math.Max(0, Math.Min(100,
+                        (int)Math.Round(detail.StepTimeCurrent * 100.0 / detail.StepTimeTotal)));
+                    detail.ActiveWaferText = $"Wafer #{waferId} : {detail.StepProgress}% ({detail.StepTimeCurrent}/{detail.StepTimeTotal}s)";
+                    detail.StepMessage = $"#{waferId} 공정 진행 중";
                 }
             }
             else if (chamber.ReservedForIncoming)
@@ -262,7 +275,11 @@ namespace SemiconductorUi.Process
             {
                 content.Progress = detail.StepProgress;
                 string message = string.IsNullOrWhiteSpace(detail.StepMessage) ? content.Status : detail.StepMessage;
-                content.ProgressText = $"{message} · {Math.Max(0, Math.Min(100, detail.StepProgress))}%";
+                // 원본 328e1bf: 웨이퍼 상태와 챔버 상태를 나눠 보여 준다.
+                string chamberText = ChamberStatusTexts.ToDisplay(chamber?.StatusText);
+                content.ProgressText = string.IsNullOrWhiteSpace(chamberText)
+                    ? $"{message} · {Math.Max(0, Math.Min(100, detail.StepProgress))}%"
+                    : $"{message} · {Math.Max(0, Math.Min(100, detail.StepProgress))}%   │   챔버: {chamberText}";
             }
 
             return content;

@@ -521,6 +521,9 @@ namespace SemiconductorUi.Process
         /// <summary>
         /// 원본 TimerEventHandlers.SimulationTimer_Tick. 하드웨어 모드와 시뮬레이션 모드를 구분하여 공정 로직을 처리합니다.
         /// </summary>
+        private const int HardwareScreenRefreshMs = 150;
+        private DateTime _lastHardwareScreenRefresh = DateTime.MinValue;
+
         public void OnSimulationTick()
         {
             // EtherCAT 연결 시 서보 상태 라벨 항상 업데이트
@@ -606,6 +609,18 @@ namespace SemiconductorUi.Process
 
                 // 시뮬레이션 모드: Phase 기반으로 TM 시각화 업데이트
                 UpdateTmVisualization();
+            }
+
+            // 하드웨어 모드는 공정 루프가 50ms마다 돌지만, 화면 전체 갱신은 예전처럼 150ms 간격으로만 합니다.
+            // (공정 판단만 자주 하고, 화면 다시 그리기 부담은 늘리지 않기 위함. 원본 51f4792)
+            if (IsTmHardwareModeAvailable())
+            {
+                var now = DateTime.Now;
+                if ((now - _lastHardwareScreenRefresh).TotalMilliseconds < HardwareScreenRefreshMs)
+                {
+                    return;
+                }
+                _lastHardwareScreenRefresh = now;
             }
 
             CaptureTrendSampleTick(TrendClock());

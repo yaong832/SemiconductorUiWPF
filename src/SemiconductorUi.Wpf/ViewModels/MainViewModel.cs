@@ -39,7 +39,7 @@ namespace SemiconductorUi.Wpf.ViewModels
         private bool _servoBusy;
         private DateTime _now = DateTime.Now;
 
-        public MainViewModel(IDialogService dialogs, IUserRepository users, IEthercatDevice ethercat)
+        public MainViewModel(IDialogService dialogs, IUserRepository users, IEthercatDevice ethercat, LoggerService logger = null)
         {
             _dialogs = dialogs ?? throw new ArgumentNullException(nameof(dialogs));
             _users = users ?? throw new ArgumentNullException(nameof(users));
@@ -49,7 +49,10 @@ namespace SemiconductorUi.Wpf.ViewModels
             State.PropertyChanged += (s, e) => OnCoreStateChanged(e.PropertyName);
 
             Ethercat = ethercat;
-            Logger = new LoggerService();
+            Logger = logger ?? new LoggerService();
+            // 파일 쓰기 실패/복구 안내는 화면 로그에만 보여 준다 (파일 기록기 잠금 밖에서)
+            Logger.FileStateNotice += (level, text) =>
+                _dispatcher.BeginInvoke(new Action(() => ShowLogOnly(new LogEntry(DateTime.Now, level, text))));
             HardwareManager = new HardwareManager(ethercat, AddLog);
             Simulation = new SimulationController(new DispatcherTickTimer(), OnSimulationTick);
 
@@ -73,13 +76,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             HomeCommand = new RelayCommand(() => Engine.HomeButton(), () => IsEthercatConnected && !_servoBusy);
             NavigateCommand = new RelayCommand(p =>
             {
-                if (p is NavPage page)
-                {
-                    // 원본: 레시피 메뉴는 화면을 바꾸지 않고 레시피 관리 창(모달)을 연다
-                    if (page == NavPage.Recipe) OpenRecipeManager();
-                    else if (page == NavPage.Config) OpenConfig();
-                    else CurrentPage = page;
-                }
+                if (p is NavPage page) CurrentPage = page;
             });
 
             Monitoring = new MonitoringViewModel(this, dialogs);
@@ -161,6 +158,24 @@ namespace SemiconductorUi.Wpf.ViewModels
             get => _currentPage;
             set
             {
+                if (value == NavPage.Recipe || value == NavPage.Config)
+                {
+                    // 원본: 레시피/설정 메뉴는 화면을 바꾸지 않고 창(모달)을 연다.
+                    // 창이 닫히면 메뉴 선택을 보던 화면으로 되돌린다 (원본 caabda5).
+                    // 메뉴 버튼의 바인딩이 값을 쓰는 중에는 되돌림 알림이 무시되므로 한 박자 뒤에 처리한다.
+                    var page = value;
+                    void OpenModal()
+                    {
+                        OnPropertyChanged(nameof(CurrentPage));
+                        if (page == NavPage.Recipe) OpenRecipeManager();
+                        else OpenConfig();
+                        OnPropertyChanged(nameof(CurrentPage));
+                    }
+                    var dispatcher = Application.Current?.Dispatcher;
+                    if (dispatcher != null) dispatcher.BeginInvoke((Action)OpenModal);
+                    else OpenModal();
+                    return;
+                }
                 if (SetProperty(ref _currentPage, value))
                 {
                     OnPropertyChanged(nameof(IsOperatePage));
@@ -480,7 +495,13 @@ namespace SemiconductorUi.Wpf.ViewModels
             }
 
             var entry = new LogEntry(DateTime.Now, level, message);
-            Logger.Log(message, entry.Level);
+            Logger.Log(entry.Time, message, entry.Level);
+            ShowLogOnly(entry);
+        }
+
+        /// <summary>화면 로그 목록에만 넣는다 (파일에는 쓰지 않음)</summary>
+        private void ShowLogOnly(LogEntry entry)
+        {
             Logs.Insert(0, entry);
             int max = Math.Max(50, AppSettings.MaxLogEntries);
             while (Logs.Count > max) Logs.RemoveAt(Logs.Count - 1);

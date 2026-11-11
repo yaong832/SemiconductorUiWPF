@@ -54,6 +54,15 @@ namespace SemiconductorUi
         /// <summary>알람 이력 보관 일수 (오늘 포함). 0이면 자동 삭제하지 않는다.</summary>
         public static int AlarmHistoryRetentionDays => GetSetting("AlarmHistoryRetentionDays", 365);
 
+        /// <summary>로그를 한 줄씩 날짜별 파일(Log_yyyyMMdd.csv)에 바로 쓸지 여부</summary>
+        public static bool LogFileEnabled => GetSetting("LogFileEnabled", true);
+
+        /// <summary>날짜별 로그 폴더. 비우면 문서\SemiconductorUi_Logs\Daily</summary>
+        public static string LogFolder => GetSetting("LogFolder", "");
+
+        /// <summary>날짜별 로그 보관 일수 (오늘 포함). 0이면 자동 삭제하지 않는다.</summary>
+        public static int LogRetentionDays => GetSetting("LogRetentionDays", 90);
+
         /// <summary>
         /// FOUP 최대 용량
         /// </summary>
@@ -176,7 +185,7 @@ namespace SemiconductorUi
         /// <summary>
         /// 하드웨어 모드 타이머 주기 (밀리초)
         /// </summary>
-        public static int HardwareModeTickMilliseconds => GetSetting("HardwareModeTickMilliseconds", 150);
+        public static int HardwareModeTickMilliseconds => GetSetting("HardwareModeTickMilliseconds", 50);
 
         /// <summary>
         /// 챔버 공정 시간 처리 속도 (초/틱)
@@ -238,6 +247,17 @@ namespace SemiconductorUi
         /// </summary>
         public static int DoorCloseWaitTicks => GetSetting("DoorCloseWaitTicks", 14);
 
+        /// <summary>
+        /// 하드웨어 모드 도어 열림 대기 시간 (밀리초). 열기 명령 후 이 시간이 지나야 실린더를 전진합니다.
+        /// 도어 위치 센서가 없으므로 실제 도어가 다 열리는 시간보다 짧게 잡지 마세요.
+        /// </summary>
+        public static int DoorOpenWaitMs => GetSetting("DoorOpenWaitMs", 2200);
+
+        /// <summary>
+        /// 하드웨어 모드 도어 닫힘 대기 시간 (밀리초). 닫기 명령 후 이 시간이 지나면 닫힌 것으로 보고 다음 단계로 갑니다.
+        /// </summary>
+        public static int DoorCloseWaitMs => GetSetting("DoorCloseWaitMs", 2100);
+
         #endregion
 
         #region 서보모터 파라미터 설정
@@ -295,6 +315,22 @@ namespace SemiconductorUi
         /// 서보 Axis1 최소 대기 시간 (밀리초)
         /// </summary>
         public static int ServoAxis1MinWaitMs => GetSetting("ServoAxis1MinWaitMs", 300);
+
+        /// <summary>
+        /// 공정 루프 이동 완료 판정: 상하(Axis1) 목표 위치 허용 오차 (펄스).
+        /// PP_D가 늦게 켜져도 현재 위치가 목표 ± 이 값 안에 머물면 완료로 본다. 0 이하면 끔(PP_D만 사용)
+        /// </summary>
+        public static int ServoInPositionToleranceAxis1 => GetSetting("ServoInPositionToleranceAxis1", 1000);
+
+        /// <summary>
+        /// 공정 루프 이동 완료 판정: 회전(Axis2) 목표 위치 허용 오차 (펄스). 0 이하면 끔(PP_D만 사용)
+        /// </summary>
+        public static int ServoInPositionToleranceAxis2 => GetSetting("ServoInPositionToleranceAxis2", 1000);
+
+        /// <summary>
+        /// 위치가 허용 오차 안에 연속으로 머물러야 하는 시간 (밀리초). DLL 위치 갱신 주기(300 ms) 이상으로 둔다
+        /// </summary>
+        public static int ServoInPositionHoldMs => GetSetting("ServoInPositionHoldMs", 300);
 
         #endregion
 

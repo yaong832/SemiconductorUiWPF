@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Windows.Input;
 using System.Windows.Media;
 using SemiconductorUi.Controls;
@@ -126,6 +127,26 @@ namespace SemiconductorUi.Wpf.ViewModels
             if (bladeColor.HasValue) s.TmWaferColor = ToColor(bladeColor.Value);
             s.TmExtension = State.TmBladeExtensionFactor;
             s.IsSimulation = !hardware;
+            // 하드웨어 모드: 회전 각도는 회전축 엔코더 값으로 그린다 (TmTarget은 블레이드 길이용)
+            var tmController = hardware ? engine.TmHardwareController : null;
+            var taught = tmController?.Positions;
+            if (taught != null)
+            {
+                s.TmEncoderX = tmController.CurrentAxis2Position;
+                s.TmTeachX = new List<KeyValuePair<EquipmentRegion, long>>
+                {
+                    new KeyValuePair<EquipmentRegion, long>(EquipmentRegion.FoupA, taught.FoupA_X),
+                    new KeyValuePair<EquipmentRegion, long>(EquipmentRegion.ChamberA, taught.ChamberA_X),
+                    new KeyValuePair<EquipmentRegion, long>(EquipmentRegion.ChamberB, taught.ChamberB_X),
+                    new KeyValuePair<EquipmentRegion, long>(EquipmentRegion.ChamberC, taught.ChamberC_X),
+                    new KeyValuePair<EquipmentRegion, long>(EquipmentRegion.FoupB, taught.FoupB_X),
+                };
+            }
+            else
+            {
+                s.TmEncoderX = null;
+                s.TmTeachX = null;
+            }
 
             var info = engine.BuildTmSideView();
             var side = s.SideView;
