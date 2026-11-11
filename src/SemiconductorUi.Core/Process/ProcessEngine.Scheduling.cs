@@ -84,6 +84,7 @@ namespace SemiconductorUi.Process
                 SimulationController?.Stop();
                 SimulationController?.StopTimer();
                 SetProcessState(ProcessState.Idle, "시뮬레이션이 완료되었습니다.");
+                RecordWaferLotFinished();
                 UpdateSimulationUi();
             }
 
@@ -153,6 +154,7 @@ namespace SemiconductorUi.Process
                         chamber.ProcessingAccumulator = 0;
                         chamber.LastProcessedTime = DateTime.MinValue;
                         AddLogMessage($"{EquipmentRegionHelper.FormatUnitLabel(chamber.UnitKey)} 공정 완료 - TM 대기 중 (도어 닫힘 유지) (웨이퍼#{chamber.CurrentWafer?.Id})", "INFO");
+                        RecordWaferProcessEnd(chamber);
                         break;
                     }
                 }
@@ -171,6 +173,7 @@ namespace SemiconductorUi.Process
                         chamber.StatusText = "Transfer Ready";
                         chamber.ProcessingAccumulator = 0;
                         AddLogMessage($"{EquipmentRegionHelper.FormatUnitLabel(chamber.UnitKey)} 공정 완료 - TM 대기 중 (도어 닫힘 유지) (웨이퍼#{chamber.CurrentWafer?.Id})", "INFO");
+                        RecordWaferProcessEnd(chamber);
                         break;
                     }
                 }

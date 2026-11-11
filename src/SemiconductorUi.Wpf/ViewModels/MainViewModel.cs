@@ -94,6 +94,7 @@ namespace SemiconductorUi.Wpf.ViewModels
                 (rows, tag) => LogCsvExporter.Save(rows, tag, DateTime.Now),
                 OpenFolderOf);
             ChangeHistoryView = new ChangeHistoryViewModel(OpenFolder);
+            WaferHistoryView = new WaferHistoryViewModel(() => Engine.WaferHistory, OpenFolder, OpenWaferHistoryWindow);
             Maintenance = new MaintenanceViewModel(
                 new IoMonitorViewModel(() => Ethercat, () => IsEthercatConnected),
                 new MaintenanceCounterViewModel(() => MaintenanceCounters, () => State.IsLoggedIn, () => State.CurrentUser,
@@ -154,7 +155,10 @@ namespace SemiconductorUi.Wpf.ViewModels
         /// <summary>보고서 화면의 변경 이력 탭 (원본 ChangeHistoryForm)</summary>
         public ChangeHistoryViewModel ChangeHistoryView { get; }
 
-        /// <summary>보고서 화면 위 탭: 로그 / 변경 이력</summary>
+        /// <summary>보고서 화면의 웨이퍼 이력 탭 (원본 WaferHistoryForm)</summary>
+        public WaferHistoryViewModel WaferHistoryView { get; }
+
+        /// <summary>보고서 화면 위 탭: 로그 / 변경 이력 / 웨이퍼 이력</summary>
         public ReportTab CurrentReportTab
         {
             get => _currentReportTab;
@@ -163,8 +167,10 @@ namespace SemiconductorUi.Wpf.ViewModels
                 if (!SetProperty(ref _currentReportTab, value)) return;
                 OnPropertyChanged(nameof(IsReportLogTab));
                 OnPropertyChanged(nameof(IsChangeHistoryTab));
+                OnPropertyChanged(nameof(IsWaferHistoryTab));
                 // 원본 ChangeHistoryForm: 보일 때마다 새로 읽는다
                 if (value == ReportTab.Changes && IsReportPage) ChangeHistoryView.Refresh();
+                UpdateWaferHistoryTabAttach();
             }
         }
 
@@ -173,6 +179,33 @@ namespace SemiconductorUi.Wpf.ViewModels
         public bool IsReportLogTab => CurrentReportTab == ReportTab.Log;
 
         public bool IsChangeHistoryTab => CurrentReportTab == ReportTab.Changes;
+
+        public bool IsWaferHistoryTab => CurrentReportTab == ReportTab.Wafers;
+
+        private bool _waferHistoryTabAttached;
+
+        /// <summary>웨이퍼 이력은 보이는 동안만 1초마다 확인한다 (보고서 화면 + 웨이퍼 이력 탭)</summary>
+        private void UpdateWaferHistoryTabAttach()
+        {
+            bool visible = IsReportPage && IsWaferHistoryTab;
+            if (visible == _waferHistoryTabAttached) return;
+            _waferHistoryTabAttached = visible;
+            if (visible) WaferHistoryView.Attach();
+            else WaferHistoryView.Detach();
+        }
+
+        /// <summary>웨이퍼 이력 별도 창 (원본 Form1.ShowWaferHistoryWindow)</summary>
+        private void OpenWaferHistoryWindow()
+        {
+            try
+            {
+                _dialogs.ShowWaferHistory(WaferHistoryView);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"웨이퍼 이력 창 오류: {ex.Message}", "WARN");
+            }
+        }
 
         /// <summary>변경 이력 기록을 켠다. 기록이 실패해도 저장은 그대로 된다.</summary>
         public void InitializeChangeHistory(string folder)
@@ -311,6 +344,7 @@ namespace SemiconductorUi.Wpf.ViewModels
                     // 원본 NavigateToSection(Trend): 들어갈 때 수집 시작
                     if (value == NavPage.Trend) Trend.OnShown();
                     if (value == NavPage.Report && IsChangeHistoryTab) ChangeHistoryView.Refresh();
+                    UpdateWaferHistoryTabAttach();
                     // I/O 모니터는 보이는 동안만 읽는다
                     if (previous == NavPage.Maintenance) Maintenance.OnHidden();
                     if (value == NavPage.Maintenance) Maintenance.OnShown();

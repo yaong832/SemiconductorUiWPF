@@ -12,7 +12,8 @@ namespace SemiconductorUi.Wpf.ViewModels
     public enum ReportTab
     {
         Log,
-        Changes
+        Changes,
+        Wafers
     }
 
     /// <summary>기간 고르기 (원본 ChangeHistoryForm.PeriodNames/PeriodDays)</summary>
