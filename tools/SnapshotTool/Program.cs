@@ -66,6 +66,23 @@ namespace SnapshotTool
                     }
                     vm.CurrentPage = NavPage.Report;
                 }));
+            // 유지보수 화면: 시뮬레이션 모드라 EtherCAT 미연결 상태
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "maintenance-1600x900.png"), 0, null,
+                vm => vm.CurrentPage = NavPage.Maintenance));
+            // I/O 모니터 별도 창: 연결된 장비의 값, 방금 바뀐 점 강조
+            failures += Try(() => SnapIoMonitor(Path.Combine(outDir, "io-monitor.png")));
+            // 유지보수 카운터 탭: 예시 횟수 (곧 점검 2개, 점검 필요 2개)
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "maintenance-counters-1600x900.png"), 0, null,
+                vm =>
+                {
+                    var usage = new SemiconductorUi.Hardware.HardwareUsageCounters();
+                    vm.StartMaintenanceCounters(usage, NewTempFolder("counters-main"));
+                    SeedCounters(vm.MaintenanceCounters, usage);
+                    vm.Maintenance.CurrentTab = MaintenanceTab.Counters;
+                    vm.CurrentPage = NavPage.Maintenance;
+                }));
+            // 유지보수 카운터 별도 창: 배기 점검 완료를 묻는 중
+            failures += Try(() => SnapCounterWindow(Path.Combine(outDir, "maintenance-counters-window.png")));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
         }
@@ -306,6 +323,74 @@ namespace SnapshotTool
             public bool CancelPendingRestore() => false;
         }
 
+        private static void SnapIoMonitor(string path)
+        {
+            var device = new DemoIoDevice();
+            var t = new DateTime(2026, 11, 11, 14, 30, 12, 400);
+            var model = new IoMonitorViewModel(() => device, () => true, () => t);
+            model.Refresh();
+            // 실린더 전진: 전진 출력 ON, 후진 출력 OFF, 0.6초 뒤 전진 센서 ON → 바뀐 네 점이 강조된다
+            device.Outputs[12] = true;
+            device.Outputs[13] = false;
+            device.Inputs[12] = false;
+            device.Inputs[13] = true;
+            t = t.AddSeconds(0.6);
+            model.Refresh();
+            SnapDialog(new SemiconductorUi.Wpf.Views.IoMonitorWindow(model), model, path);
+        }
+
+        private static string NewTempFolder(string name)
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "SnapshotTool_" + name + "_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(folder);
+            return folder;
+        }
+
+        /// <summary>일주일 쓴 모습: 주기 설정, Chamber C 도어 점검 한 번, 배기·Chamber B 도어 주기 도달</summary>
+        private static void SeedCounters(SemiconductorUi.Services.MaintenanceCounterService service, SemiconductorUi.Hardware.HardwareUsageCounters usage)
+        {
+            var t0 = new DateTime(2026, 11, 4, 9, 0, 0);
+            foreach (var (key, limit) in new[] { ("CylinderExtend", 20000L), ("Vacuum", 20000L), ("Exhaust", 10000L),
+                         ("DoorA", 5000L), ("DoorB", 5000L), ("DoorC", 5000L), ("Axis1", 50000L) })
+            {
+                service.SetLimit(key, limit, "admin", t0);
+            }
+
+            void Outputs(int numbering, int count)
+            {
+                for (int i = 0; i < count; i++) usage.NoteOutput(numbering, false, true);
+            }
+
+            Outputs(11, 4100);
+            service.Collect(t0.AddDays(2));
+            service.MarkServiced("DoorC", "kim", "도어 O-링 교체", t0.AddDays(2).AddHours(1));
+
+            Outputs(12, 18412);
+            Outputs(14, 18390);
+            Outputs(15, 10250);
+            Outputs(5, 3120);
+            Outputs(8, 5004);
+            Outputs(11, 2870);
+            for (int i = 0; i < 31544; i++) usage.NoteAxisCommand(1);
+            for (int i = 0; i < 31560; i++) usage.NoteAxisCommand(2);
+            service.Collect(t0.AddDays(7));
+        }
+
+        private static void SnapCounterWindow(string path)
+        {
+            var usage = new SemiconductorUi.Hardware.HardwareUsageCounters();
+            var service = new SemiconductorUi.Services.MaintenanceCounterService(NewTempFolder("counters-window"), usage, (m, l) => { });
+            SeedCounters(service, usage);
+            var model = new MaintenanceCounterViewModel(() => service, () => true, () => "kim", () => false, f => { },
+                () => new DateTime(2026, 11, 11, 15, 20, 0));
+            model.RefreshAll();
+            model.SelectedRow = model.Rows.First(r => r.Key == "Exhaust");
+            model.Note = "배기 밸브 시트 점검";
+            model.AskServicedCommand.Execute(null);
+            SnapDialog(new SemiconductorUi.Wpf.Views.MaintenanceCounterWindow(model), model, path);
+            service.Dispose();
+        }
+
         private sealed class NullTeachingStore : ITeachingStore
         {
             public void SaveTeaching(SemiconductorUi.Models.TeachingPositionsData data) { }
@@ -369,7 +454,6 @@ namespace SnapshotTool
         }
     }
 
-    /// <summary>연결되지 않은 장비 (스냅샷용)</summary>
     /// <summary>창을 띄우지 않는 대화상자: 확인은 예, 웨이퍼 수는 최대값</summary>
     internal sealed class AutoDialogs : IDialogService
     {
@@ -386,21 +470,43 @@ namespace SnapshotTool
         public void ShowRecipeManager(RecipeManagerViewModel model) { }
         public void ShowTeachingPositions(TeachingPositionViewModel model) { }
         public void ShowSettingsBackup(SettingsBackupViewModel model) { }
+        public void ShowIoMonitor(IoMonitorViewModel model) { }
+        public void ShowMaintenanceCounters(MaintenanceCounterViewModel model) { }
         public void ShowAlarmHistory(AlarmHistoryViewModel model) { }
     }
 
-    internal sealed class OfflineDevice : IEthercatDevice
+    /// <summary>I/O 모니터 스냅샷용: 공정 대기 중 모습 (녹색 램프, 도어 닫힘, 실린더 후진, 진공 ON)</summary>
+    internal sealed class DemoIoDevice : OfflineDevice
+    {
+        public DemoIoDevice()
+        {
+            foreach (int i in new[] { 2, 3, 4, 7, 10, 13, 14 }) Outputs[i] = true;
+            Inputs[12] = true;
+        }
+
+        public bool[] Inputs { get; } = new bool[IoMonitorSnapshot.PointCount];
+        public bool[] Outputs { get; } = new bool[IoMonitorSnapshot.PointCount];
+        public override bool Digital_Input(int numbering) => Inputs[numbering];
+        public override bool GetDigitalOutput(int numbering) => Outputs[numbering];
+        // Axis1: 서보 ON + 목표 도달, Axis2: 서보 ON + 경고 비트
+        public override ushort GetStatusWord(int axis) => axis == 1 ? (ushort)0x1637 : (ushort)0x02B7;
+        public override string Axis1_is_PosData() => "806874";
+        public override string Axis2_is_PosData() => "-59120";
+    }
+
+    /// <summary>연결되지 않은 장비 (스냅샷용)</summary>
+    internal class OfflineDevice : IEthercatDevice
     {
         public bool CIFX_50RE_Connect() => false;
         public void CIFX_50RE_Disconnect() { }
         public void ReadData_Send_Start(int interval) { }
         public void ReadData_Timer_Start() { }
-        public bool Digital_Input(int numbering) => false;
-        public bool GetDigitalOutput(int numbering) => false;
+        public virtual bool Digital_Input(int numbering) => false;
+        public virtual bool GetDigitalOutput(int numbering) => false;
         public void Digital_Output(int numbering, bool value) { }
         public void Axis1_ON() { }
         public void Axis1_OFF() { }
-        public string Axis1_is_PosData() => "-";
+        public virtual string Axis1_is_PosData() => "-";
         public void Axis1_UD_Config_Update(long a, long d, long m, long v) { }
         public void Axis1_UD_POS_Update(long position) { }
         public void Axis1_UD_Move_Send() { }
@@ -408,14 +514,14 @@ namespace SnapshotTool
         public bool Axis1_Status(string status) => false;
         public void Axis2_ON() { }
         public void Axis2_OFF() { }
-        public string Axis2_is_PosData() => "-";
+        public virtual string Axis2_is_PosData() => "-";
         public void Axis2_LR_Config_Update(long a, long d, long m, long v) { }
         public void Axis2_LR_POS_Update(long position) { }
         public void Axis2_LR_Move_Send() { }
         public void Axis2_LR_Homming() { }
         public bool Axis2_Status(string status) => false;
         public bool IsAxisFault(int axis) => false;
-        public ushort GetStatusWord(int axis) => 0;
+        public virtual ushort GetStatusWord(int axis) => 0;
         public void QuickStopAll() { }
         public void ResetAxisFault(int axis) { }
         public EthercatCommunicationStatus CheckCommunication() => null;

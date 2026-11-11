@@ -95,6 +95,54 @@ namespace SemiconductorUi.Wpf.Services
             _backup.Activate();
         }
 
+        private IoMonitorWindow _ioMonitor;
+
+        public void ShowIoMonitor(IoMonitorViewModel model)
+        {
+            var main = Application.Current?.MainWindow;
+            if (_ioMonitor == null)
+            {
+                _ioMonitor = new IoMonitorWindow(model);
+                if (main != null && main.IsLoaded)
+                {
+                    _ioMonitor.Owner = main;
+                    main.Closing += (s, e) => _ioMonitor?.ForceClose();
+                }
+                else
+                {
+                    _ioMonitor.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+            }
+
+            if (!_ioMonitor.IsVisible) _ioMonitor.Show();
+            if (_ioMonitor.WindowState == WindowState.Minimized) _ioMonitor.WindowState = WindowState.Normal;
+            _ioMonitor.Activate();
+        }
+
+        private MaintenanceCounterWindow _counters;
+
+        public void ShowMaintenanceCounters(MaintenanceCounterViewModel model)
+        {
+            var main = Application.Current?.MainWindow;
+            if (_counters == null)
+            {
+                _counters = new MaintenanceCounterWindow(model);
+                if (main != null && main.IsLoaded)
+                {
+                    _counters.Owner = main;
+                    main.Closing += (s, e) => _counters?.ForceClose();
+                }
+                else
+                {
+                    _counters.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+            }
+
+            if (!_counters.IsVisible) _counters.Show();
+            if (_counters.WindowState == WindowState.Minimized) _counters.WindowState = WindowState.Normal;
+            _counters.Activate();
+        }
+
         private AlarmHistoryWindow _alarmHistory;
 
         public void ShowAlarmHistory(AlarmHistoryViewModel model)
