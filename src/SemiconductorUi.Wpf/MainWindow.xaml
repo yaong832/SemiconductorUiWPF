@@ -86,30 +86,39 @@
                     <Button Content="사용자 관리" Style="{StaticResource BarButton}" Width="92" Margin="4,0,0,0" Command="{Binding UserManagementCommand}"/>
                 </StackPanel>
 
-                <!-- 오른쪽: 연결 · 서보 · 알람 · 시계 · 3색 램프 -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <Border Style="{StaticResource Chip}">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="8" Height="8" Fill="{Binding EthercatStatusBrush}" Margin="0,0,6,0"/>
-                            <TextBlock Text="{Binding EthercatStatusText}" Foreground="{StaticResource TextPrimary}"/>
-                        </StackPanel>
-                    </Border>
-                    <Button Content="연결" Style="{StaticResource BarButton}" Width="52" Margin="6,0,0,0" Command="{Binding ConnectEthercatCommand}"/>
-                    <Button Content="해제" Style="{StaticResource BarButton}" Width="52" Margin="4,0,0,0" Command="{Binding DisconnectEthercatCommand}"/>
-                    <Rectangle Width="1" Height="27" Fill="{StaticResource Border}" Margin="12,0,0,0"/>
+                <!-- 오른쪽: 연결 · 서보 · 알람 · 시계 · 3색 램프
+                     알람 칩만 남는 폭에 맞춰 줄어들고(말줄임) 시계와 램프는 늘 보이게 함 -->
+                <Grid Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0,16,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Style="{StaticResource Chip}">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="8" Height="8" Fill="{Binding EthercatStatusBrush}" Margin="0,0,6,0"/>
+                                <TextBlock Text="{Binding EthercatStatusText}" Foreground="{StaticResource TextPrimary}"/>
+                            </StackPanel>
+                        </Border>
+                        <Button Content="연결" Style="{StaticResource BarButton}" Width="52" Margin="6,0,0,0" Command="{Binding ConnectEthercatCommand}"/>
+                        <Button Content="해제" Style="{StaticResource BarButton}" Width="52" Margin="4,0,0,0" Command="{Binding DisconnectEthercatCommand}"/>
+                        <Rectangle Width="1" Height="27" Fill="{StaticResource Border}" Margin="12,0,0,0"/>
 
-                    <Border Style="{StaticResource Chip}" Margin="12,0,0,0">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="8" Height="8" Fill="{Binding ServoStatusBrush}" Margin="0,0,6,0"/>
-                            <TextBlock Text="{Binding ServoStatusText}" Foreground="{StaticResource TextPrimary}"/>
-                        </StackPanel>
-                    </Border>
-                    <Button Content="서보 ON" Style="{StaticResource BarButton}" Width="68" Margin="6,0,0,0" Command="{Binding ServoOnCommand}"/>
-                    <Button Content="서보 OFF" Style="{StaticResource BarButton}" Width="72" Margin="4,0,0,0" Command="{Binding ServoOffCommand}"/>
-                    <Rectangle Width="1" Height="27" Fill="{StaticResource Border}" Margin="12,0,0,0"/>
+                        <Border Style="{StaticResource Chip}" Margin="12,0,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="8" Height="8" Fill="{Binding ServoStatusBrush}" Margin="0,0,6,0"/>
+                                <TextBlock Text="{Binding ServoStatusText}" Foreground="{StaticResource TextPrimary}"/>
+                            </StackPanel>
+                        </Border>
+                        <Button Content="서보 ON" Style="{StaticResource BarButton}" Width="68" Margin="6,0,0,0" Command="{Binding ServoOnCommand}"/>
+                        <Button Content="서보 OFF" Style="{StaticResource BarButton}" Width="72" Margin="4,0,0,0" Command="{Binding ServoOffCommand}"/>
+                        <Rectangle Width="1" Height="27" Fill="{StaticResource Border}" Margin="12,0,0,0"/>
+                    </StackPanel>
 
                     <!-- 원본 8baff6e: 알람 표시를 누르면 현재 알람과 알람 이력 창 -->
-                    <Button Margin="12,0,0,0" MaxWidth="290" Cursor="Hand" Command="{Binding ShowAlarmHistoryCommand}"
+                    <Button Grid.Column="1" HorizontalAlignment="Left" Margin="12,0,0,0" MaxWidth="290" Cursor="Hand" Command="{Binding ShowAlarmHistoryCommand}"
                             ToolTip="{Binding AlarmChipToolTip}" VerticalAlignment="Center" Focusable="False">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
@@ -134,10 +143,10 @@
                             <TextBlock Text="{Binding AlarmText}" Foreground="{StaticResource TextPrimary}" TextTrimming="CharacterEllipsis"/>
                         </DockPanel>
                     </Button>
-                    <TextBlock Text="{Binding ClockText}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"
+                    <TextBlock Grid.Column="2" Text="{Binding ClockText}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"
                                Margin="14,0,0,0" FontWeight="SemiBold"/>
-                    <ctl:TowerLamp Scene="{Binding Monitoring.Scene}" Margin="8,0,0,0" VerticalAlignment="Center"/>
-                </StackPanel>
+                    <ctl:TowerLamp Grid.Column="3" Scene="{Binding Monitoring.Scene}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                </Grid>
             </Grid>
         </Border>
 
