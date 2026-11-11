@@ -71,13 +71,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             HomeCommand = new RelayCommand(() => Engine.HomeButton(), () => IsEthercatConnected && !_servoBusy);
             NavigateCommand = new RelayCommand(p =>
             {
-                if (p is NavPage page)
-                {
-                    // 원본: 레시피 메뉴는 화면을 바꾸지 않고 레시피 관리 창(모달)을 연다
-                    if (page == NavPage.Recipe) OpenRecipeManager();
-                    else if (page == NavPage.Config) OpenConfig();
-                    else CurrentPage = page;
-                }
+                if (p is NavPage page) CurrentPage = page;
             });
 
             Monitoring = new MonitoringViewModel(this, dialogs);
@@ -159,6 +153,24 @@ namespace SemiconductorUi.Wpf.ViewModels
             get => _currentPage;
             set
             {
+                if (value == NavPage.Recipe || value == NavPage.Config)
+                {
+                    // 원본: 레시피/설정 메뉴는 화면을 바꾸지 않고 창(모달)을 연다.
+                    // 창이 닫히면 메뉴 선택을 보던 화면으로 되돌린다 (원본 caabda5).
+                    // 메뉴 버튼의 바인딩이 값을 쓰는 중에는 되돌림 알림이 무시되므로 한 박자 뒤에 처리한다.
+                    var page = value;
+                    void OpenModal()
+                    {
+                        OnPropertyChanged(nameof(CurrentPage));
+                        if (page == NavPage.Recipe) OpenRecipeManager();
+                        else OpenConfig();
+                        OnPropertyChanged(nameof(CurrentPage));
+                    }
+                    var dispatcher = Application.Current?.Dispatcher;
+                    if (dispatcher != null) dispatcher.BeginInvoke((Action)OpenModal);
+                    else OpenModal();
+                    return;
+                }
                 if (SetProperty(ref _currentPage, value))
                 {
                     OnPropertyChanged(nameof(IsOperatePage));

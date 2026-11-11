@@ -110,7 +110,10 @@ namespace SemiconductorUi.Wpf.Controls
             _lamp.Green = s.LampGreen;
             _lamp.InvalidateVisual();
 
-            _tm.UpdateTmState(s.TmTarget, s.TmCarrying, s.TmExtension, s.TmWaferColor, s.IsSimulation);
+            if (!s.IsSimulation && s.TmEncoderX.HasValue && s.TmTeachX != null)
+                _tm.UpdateTmStateFromEncoder(s.TmTarget, s.TmEncoderX.Value, s.TmTeachX, s.TmCarrying, s.TmExtension, s.TmWaferColor);
+            else
+                _tm.UpdateTmState(s.TmTarget, s.TmCarrying, s.TmExtension, s.TmWaferColor, s.IsSimulation);
             _side.SetPositions(s.TeachingPositions);
             _side.UpdateState(s.SideView);
         }

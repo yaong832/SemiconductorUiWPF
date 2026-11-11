@@ -34,6 +34,7 @@ namespace SemiconductorUi.Process
                 // 공정 중: 램프 켜짐
                 on = true;
                 _simLampBlinkStartMs.Remove(region);
+                _hardwareLampBlinkStartMs.Remove(region);
                 _chamberLampBlinkStates[region] = false;
                 _chamberLampBlinkCounters[region] = 0;
             }
@@ -49,25 +50,23 @@ namespace SemiconductorUi.Process
             }
             else if (isCompleted)
             {
-                // 공정 완료 (웨이퍼 있음): 깜빡임
-                if (!_chamberLampBlinkCounters.ContainsKey(region))
+                // 공정 완료 (웨이퍼 있음): 시간 기준 깜빡임 (원본 51f4792)
+                // 완료된 순간부터 꺼짐으로 시작해 1.5초마다 켜짐/꺼짐을 바꿉니다.
+                // (예전에는 화면 갱신 횟수를 셌기 때문에 공정 루프 주기가 바뀌면 깜빡임 속도도 바뀌었습니다.)
+                if (!_hardwareLampBlinkStartMs.ContainsKey(region))
                 {
-                    _chamberLampBlinkCounters[region] = 0;
-                    _chamberLampBlinkStates[region] = false;
+                    _hardwareLampBlinkStartMs[region] = LampClockMs();
                 }
-                _chamberLampBlinkCounters[region]++;
-                if (_chamberLampBlinkCounters[region] >= CHAMBER_LAMP_BLINK_INTERVAL)
-                {
-                    _chamberLampBlinkCounters[region] = 0;
-                    _chamberLampBlinkStates[region] = !_chamberLampBlinkStates[region];
-                }
-                on = _chamberLampBlinkStates[region];
+                long elapsedHw = Math.Max(0, LampClockMs() - _hardwareLampBlinkStartMs[region]);
+                on = (elapsedHw / ChamberLampBlinkHalfPeriodMs) % 2 == 1;
+                _chamberLampBlinkStates[region] = on;
             }
             else
             {
                 // 웨이퍼 없음: 램프 꺼짐
                 on = false;
                 _simLampBlinkStartMs.Remove(region);
+                _hardwareLampBlinkStartMs.Remove(region);
                 _chamberLampBlinkStates[region] = false;
                 _chamberLampBlinkCounters[region] = 0;
             }
@@ -80,6 +79,10 @@ namespace SemiconductorUi.Process
 
         // 시뮬레이션 점멸: 하드웨어 램프처럼 꺼짐으로 시작해 한 주기(10틱 x 하드웨어 틱 간격)마다 켜짐/꺼짐을 바꾼다.
         private readonly Dictionary<EquipmentRegion, long> _simLampBlinkStartMs = new Dictionary<EquipmentRegion, long>();
+        private readonly Dictionary<EquipmentRegion, long> _hardwareLampBlinkStartMs = new Dictionary<EquipmentRegion, long>();
+
+        /// <summary>챔버 램프 깜빡임 반주기. 예전 값(10틱 × 150ms)과 같은 1.5초로 고정 (공정 루프 주기와 무관, 원본 51f4792)</summary>
+        public const int ChamberLampBlinkHalfPeriodMs = 1500;
         private readonly System.Diagnostics.Stopwatch _simLampClock = System.Diagnostics.Stopwatch.StartNew();
 
         /// <summary>점멸 시계 (밀리초). 시험에서 바꿔 끼운다.</summary>
@@ -93,7 +96,7 @@ namespace SemiconductorUi.Process
 
         private bool GetSimLampBlinkOn(EquipmentRegion region)
         {
-            long phaseMs = (long)CHAMBER_LAMP_BLINK_INTERVAL * Math.Max(1, AppSettings.HardwareModeTickMilliseconds);
+            long phaseMs = ChamberLampBlinkHalfPeriodMs;
             long elapsed = LampClockMs() - _simLampBlinkStartMs[region];
             return (elapsed / phaseMs) % 2 == 1;
         }
