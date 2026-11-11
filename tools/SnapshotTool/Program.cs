@@ -35,6 +35,14 @@ namespace SnapshotTool
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-1600x900.png"), 0));
             // 시뮬레이션 공정을 돌린 중간 화면 (공정 엔진이 그림을 움직이는지 확인)
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-running-1600x900.png"), 75));
+            // 운전 화면 검증 탭: 공정 전(챔버 데이터 없음)과 공정 중 (시뮬레이션이라 EtherCAT은 미연결)
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "operate-verification-idle-1600x900.png"), 0, null,
+                vm => vm.CurrentTab = OperateTab.Verification));
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "operate-verification-1600x900.png"), 75, null,
+                vm => vm.CurrentTab = OperateTab.Verification));
+            // 운전 화면 이송 탭: 공정 중 TM 이송과 대기열
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "operate-transfer-1600x900.png"), 75, null,
+                vm => vm.CurrentTab = OperateTab.Transfer));
             // 챔버/FOUP 상세 창 (공정 중)
             failures += Try(() => SnapUnitDetail(outDir, 75, "PMA", "PMB", "FOUP A", "FOUP B"));
             failures += Try(() => SnapConfig(Path.Combine(outDir, "config.png")));

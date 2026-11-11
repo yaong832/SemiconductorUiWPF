@@ -161,10 +161,12 @@
                     <Grid>
                         <views:MonitoringView DataContext="{Binding Monitoring}"
                                               Visibility="{Binding DataContext.CurrentTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Monitoring}}"/>
-                        <views:PlaceholderView Title="검증"
-                                               Visibility="{Binding CurrentTab, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Verification}}"/>
-                        <views:PlaceholderView Title="이송"
-                                               Visibility="{Binding CurrentTab, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Transfer}}"/>
+                        <Grid Visibility="{Binding CurrentTab, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Verification}}">
+                            <views:VerificationView DataContext="{Binding VerificationTab}"/>
+                        </Grid>
+                        <Grid Visibility="{Binding CurrentTab, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Transfer}}">
+                            <views:TransferView DataContext="{Binding TransferTab}"/>
+                        </Grid>
                     </Grid>
                 </Border>
             </Grid>
