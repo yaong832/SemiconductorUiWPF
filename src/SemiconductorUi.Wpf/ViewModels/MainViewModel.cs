@@ -54,6 +54,12 @@ namespace SemiconductorUi.Wpf.ViewModels
             Logger.FileStateNotice += (level, text) =>
                 _dispatcher.BeginInvoke(new Action(() => ShowLogOnly(new LogEntry(DateTime.Now, level, text))));
             HardwareManager = new HardwareManager(ethercat, AddLog);
+            // 통신 감시(1단계)가 이상/복구를 알리면 상단 바 EtherCAT 표시를 바꾼다 (WPF 추가)
+            HardwareManager.CommHealthChanged += _ => _dispatcher.BeginInvoke(new Action(() =>
+            {
+                OnPropertyChanged(nameof(EthercatStatusText));
+                OnPropertyChanged(nameof(EthercatStatusBrush));
+            }));
             Simulation = new SimulationController(new DispatcherTickTimer(), OnSimulationTick);
 
             ServiceContainer.Register<ILoggerService>(Logger);
@@ -317,7 +323,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             {
                 switch (EthercatState)
                 {
-                    case EthercatLinkState.Connected: return "EtherCAT 연결됨";
+                    case EthercatLinkState.Connected: return HardwareManager.IsCommUnhealthy ? "EtherCAT 통신 이상" : "EtherCAT 연결됨";
                     case EthercatLinkState.ConnectionFailed: return "EtherCAT 연결 실패";
                     case EthercatLinkState.Error: return "EtherCAT 오류";
                     default: return "EtherCAT 끊김";
@@ -326,7 +332,7 @@ namespace SemiconductorUi.Wpf.ViewModels
         }
 
         public Brush EthercatStatusBrush =>
-            EthercatState == EthercatLinkState.Connected ? Res("Success")
+            EthercatState == EthercatLinkState.Connected ? (HardwareManager.IsCommUnhealthy ? Res("Warning") : Res("Success"))
             : EthercatState == EthercatLinkState.Disconnected ? Res("TextSecondary")
             : Res("Danger");
 
