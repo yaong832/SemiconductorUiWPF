@@ -154,8 +154,26 @@
             <Grid Margin="0,10,0,0" Visibility="{Binding IsTrendPage, Converter={StaticResource BoolToVisibility}}">
                 <views:TrendView DataContext="{Binding Trend}"/>
             </Grid>
+            <!-- 보고서: 작은 탭 (로그 / 변경 이력) -->
             <Grid Margin="0,10,0,0" Visibility="{Binding IsReportPage, Converter={StaticResource BoolToVisibility}}">
-                <views:ReportView DataContext="{Binding Report}"/>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="36"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                    <RadioButton Style="{StaticResource SubTab}" Content="로그"
+                                 IsChecked="{Binding CurrentReportTab, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:ReportTab.Log}}"/>
+                    <RadioButton Style="{StaticResource SubTab}" Content="변경 이력"
+                                 IsChecked="{Binding CurrentReportTab, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:ReportTab.Changes}}"/>
+                </StackPanel>
+                <Grid Grid.Row="1">
+                    <Grid Visibility="{Binding IsReportLogTab, Converter={StaticResource BoolToVisibility}}">
+                        <views:ReportView DataContext="{Binding Report}"/>
+                    </Grid>
+                    <Grid Visibility="{Binding IsChangeHistoryTab, Converter={StaticResource BoolToVisibility}}">
+                        <views:ChangeHistoryView DataContext="{Binding ChangeHistoryView}"/>
+                    </Grid>
+                </Grid>
             </Grid>
             <views:PlaceholderView Margin="0,10,0,0" Title="{Binding CurrentPageTitle}"
                                    Visibility="{Binding IsPlaceholderPage, Converter={StaticResource BoolToVisibility}}"/>

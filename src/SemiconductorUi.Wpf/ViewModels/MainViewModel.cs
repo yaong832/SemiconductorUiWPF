@@ -54,6 +54,9 @@ namespace SemiconductorUi.Wpf.ViewModels
             Logger.FileStateNotice += (level, text) =>
                 _dispatcher.BeginInvoke(new Action(() => ShowLogOnly(new LogEntry(DateTime.Now, level, text))));
             HardwareManager = new HardwareManager(ethercat, AddLog);
+
+            // 변경 이력: 티칭·속도·레시피·임계값·사용자를 저장할 때 바뀐 값과 사용자를 남긴다 (원본 InitializeChangeHistory)
+            InitializeChangeHistory(AppSettings.ChangeHistoryFolder);
             Simulation = new SimulationController(new DispatcherTickTimer(), OnSimulationTick);
 
             ServiceContainer.Register<ILoggerService>(Logger);
@@ -82,6 +85,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             Report = new ReportViewModel(Logs, dialogs,
                 (rows, tag) => LogCsvExporter.Save(rows, tag, DateTime.Now),
                 OpenFolderOf);
+            ChangeHistoryView = new ChangeHistoryViewModel(OpenExplorerFolder);
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _clockTimer.Tick += (s, e) => Now = DateTime.Now;
@@ -132,6 +136,49 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         /// <summary>보고서 화면 (원본 ReportForm)</summary>
         public ReportViewModel Report { get; }
+
+        /// <summary>보고서 화면의 변경 이력 탭 (원본 ChangeHistoryForm)</summary>
+        public ChangeHistoryViewModel ChangeHistoryView { get; }
+
+        /// <summary>보고서 화면 위 탭: 로그 / 변경 이력</summary>
+        public ReportTab CurrentReportTab
+        {
+            get => _currentReportTab;
+            set
+            {
+                if (!SetProperty(ref _currentReportTab, value)) return;
+                OnPropertyChanged(nameof(IsReportLogTab));
+                OnPropertyChanged(nameof(IsChangeHistoryTab));
+                // 원본 ChangeHistoryForm: 보일 때마다 새로 읽는다
+                if (value == ReportTab.Changes && IsReportPage) ChangeHistoryView.Refresh();
+            }
+        }
+
+        private ReportTab _currentReportTab = ReportTab.Log;
+
+        public bool IsReportLogTab => CurrentReportTab == ReportTab.Log;
+
+        public bool IsChangeHistoryTab => CurrentReportTab == ReportTab.Changes;
+
+        /// <summary>변경 이력 기록을 켠다. 기록이 실패해도 저장은 그대로 된다.</summary>
+        public void InitializeChangeHistory(string folder)
+        {
+            try
+            {
+                ChangeHistory.Initialize(folder,
+                    () => State.IsLoggedIn ? State.CurrentUser : "(로그인 안 함)",
+                    () => State.IsLoggedIn ? State.CurrentRole : "",
+                    AddLog);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"변경 이력을 시작하지 못했습니다: {ex.Message}", "WARN");
+            }
+        }
+
+        /// <summary>파일 탐색기로 폴더를 연다.</summary>
+        private static void OpenExplorerFolder(string folder) =>
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true });
 
         /// <summary>파일 탐색기에서 파일이 있는 폴더를 열고 그 파일을 고른다.</summary>
         private void OpenFolderOf(string filePath)
@@ -184,6 +231,7 @@ namespace SemiconductorUi.Wpf.ViewModels
                     OnPropertyChanged(nameof(ViewTitle));
                     // 원본 NavigateToSection(Trend): 들어갈 때 수집 시작
                     if (value == NavPage.Trend) Trend.OnShown();
+                    if (value == NavPage.Report && IsChangeHistoryTab) ChangeHistoryView.Refresh();
                 }
             }
         }
@@ -468,7 +516,7 @@ namespace SemiconductorUi.Wpf.ViewModels
                 _dialogs.Warn("사용자 관리는 관리자만 접근할 수 있습니다.", "권한 없음");
                 return;
             }
-            _dialogs.ShowUserManagement(new UserManagementViewModel(_dialogs, _users, State.CurrentUser));
+            _dialogs.ShowUserManagement(new UserManagementViewModel(_dialogs, new ChangeRecordingUserRepository(_users), State.CurrentUser));
         }
 
         #region 레시피
@@ -525,7 +573,9 @@ namespace SemiconductorUi.Wpf.ViewModels
         /// <summary>저장 후 파일에서 다시 읽어 주요 값이 같은지 확인 (원본 ConfigForm.btnSave_Click)</summary>
         private static bool SaveThresholds(EnvThresholdSnapshot thresholds)
         {
+            var before = ChangeHistory.TryLoad(() => ConfigRepository.Load());
             ConfigRepository.Save(thresholds);
+            ChangeHistory.RecordThresholds(before, thresholds);
             var saved = ConfigRepository.Load();
             return saved != null
                 && Math.Abs(saved.TempWarn - thresholds.TempWarn) < 0.001
@@ -543,7 +593,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             }
             try
             {
-                var model = new RecipeManagerViewModel(_dialogs, RecipeRepository.LoadAll, RecipeRepository.SaveAll)
+                var model = new RecipeManagerViewModel(_dialogs, RecipeRepository.LoadAll, SaveRecipes)
                 {
                     OnSavedAll = list =>
                     {
@@ -612,13 +662,28 @@ namespace SemiconductorUi.Wpf.ViewModels
                 "INFO");
         }
 
+        /// <summary>레시피 저장·삭제 (원본 RecipeManagerForm): 저장 전 파일 값과 비교해 변경 이력을 남긴다</summary>
+        private static void SaveRecipes(List<RecipeSnapshot> recipes)
+        {
+            var before = ChangeHistory.TryLoad(() => RecipeRepository.LoadAll());
+            RecipeRepository.SaveAll(recipes);
+            ChangeHistory.RecordRecipes(before, recipes);
+        }
+
         private sealed class RepositoryTeachingStore : ITeachingStore
         {
-            public void SaveTeaching(TeachingPositionsData data) => TeachingPositionsRepository.Save(data);
+            public void SaveTeaching(TeachingPositionsData data)
+            {
+                var before = ChangeHistory.TryLoad(() => TeachingPositionsRepository.Load());
+                TeachingPositionsRepository.Save(data);
+                ChangeHistory.RecordTeaching(before, data);
+            }
 
             public ServoSpeedSettings SaveSpeeds(ServoSpeedSettings speeds)
             {
+                var before = ChangeHistory.TryLoad(() => ServoSpeedSettings.FromAppSettings());
                 ServoSpeedRepository.Save(speeds);
+                ChangeHistory.RecordSpeeds(before, speeds);
                 return ServoSpeedSettings.FromAppSettings();
             }
         }

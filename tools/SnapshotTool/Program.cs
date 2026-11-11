@@ -60,6 +60,14 @@ namespace SnapshotTool
                     }
                     vm.CurrentPage = NavPage.Report;
                 }));
+            // 보고서 → 변경 이력 탭: 티칭·레시피·임계값·사용자 예시 기록
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "change-history-1600x900.png"), 0, null,
+                vm =>
+                {
+                    SeedChangeHistory();
+                    vm.CurrentPage = NavPage.Report;
+                    vm.CurrentReportTab = ReportTab.Changes;
+                }));
             Console.WriteLine(failures == 0 ? "OK" : $"{failures} snapshot(s) failed");
             return failures == 0 ? 0 : 1;
         }
@@ -220,6 +228,52 @@ namespace SnapshotTool
             host.UpdateLayout();
             Save(host, w, h, path);
             window.Close();
+        }
+
+        /// <summary>임시 폴더에 변경 이력 예시를 쓴다 (오늘, 어제, 사흘 전)</summary>
+        private static void SeedChangeHistory()
+        {
+            string folder = Path.Combine(Path.GetTempPath(), "SnapshotTool_changes_" + Guid.NewGuid().ToString("N"));
+            string user = "admin", role = "관리자";
+            SemiconductorUi.Services.ChangeHistory.Initialize(folder, () => user, () => role, (m, l) => { });
+            var today = DateTime.Today;
+
+            var teachBefore = SemiconductorUi.Models.TeachingPositionsData.CreateDefault();
+            var teachAfter = SemiconductorUi.Models.TeachingPositionsData.CreateDefault();
+            teachAfter.ChamberB_X = -190910;
+            teachAfter.FoupA_LandY[2] = 1432120;
+            Record(SemiconductorUi.Services.ChangeHistory.CategoryTeaching,
+                SemiconductorUi.Services.ChangeHistory.Diff("", teachBefore, teachAfter, SemiconductorUi.Services.ChangeHistory.TeachingLabel),
+                today.AddDays(-3).AddHours(14).AddMinutes(5));
+
+            var users = new[] { new SemiconductorUi.Models.User { Username = "admin", Password = "x", Role = "관리자" } };
+            var usersAfter = new[]
+            {
+                users[0],
+                new SemiconductorUi.Models.User { Username = "kim", Password = "y", Role = "작업자" },
+            };
+            Record(SemiconductorUi.Services.ChangeHistory.CategoryUser,
+                SemiconductorUi.Services.ChangeHistory.DiffUsers(users, usersAfter), today.AddDays(-1).AddHours(9).AddMinutes(12));
+
+            var envBefore = new SemiconductorUi.Models.EnvThresholdSnapshot { TempWarn = 5, TempAlarm = 10, GasWarn = 5, GasAlarm = 10 };
+            var envAfter = new SemiconductorUi.Models.EnvThresholdSnapshot { TempWarn = 4, TempAlarm = 8, GasWarn = 5, GasAlarm = 10 };
+            Record(SemiconductorUi.Services.ChangeHistory.CategoryThreshold,
+                SemiconductorUi.Services.ChangeHistory.Diff("", envBefore, envAfter, SemiconductorUi.Services.ChangeHistory.ThresholdLabel),
+                today.AddHours(10).AddMinutes(40));
+
+            var recipes = SemiconductorUi.Repositories.RecipeRepository.LoadAll();
+            if (recipes != null && recipes.Count > 0)
+            {
+                var before = recipes.Take(1).ToList();
+                var changed = SemiconductorUi.Repositories.RecipeRepository.LoadAll().Take(1).ToList();
+                changed[0].DurB += 5;
+                changed[0].PMB.T += 10;
+                Record(SemiconductorUi.Services.ChangeHistory.CategoryRecipe,
+                    SemiconductorUi.Services.ChangeHistory.DiffRecipes(before, changed), today.AddHours(13).AddMinutes(22));
+            }
+
+            void Record(string category, System.Collections.Generic.List<SemiconductorUi.Services.ChangeEntry> entries, DateTime at) =>
+                SemiconductorUi.Services.ChangeHistory.Record(category, entries, at);
         }
 
         private sealed class NullTeachingStore : ITeachingStore
