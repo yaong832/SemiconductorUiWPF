@@ -61,6 +61,8 @@ namespace SemiconductorUi.Wpf.ViewModels
 
             // 원본 Form1의 공정 진행 코드 (스케줄링, TM 단계, 챔버 공정, 하드웨어 동작)
             Engine = new ProcessEngine(State, ethercat, HardwareManager, Simulation, this, new DispatcherTickTimer());
+            AttachAlarmHistory();
+            ShowAlarmHistoryCommand = new RelayCommand(ShowAlarmHistory);
 
             LoginCommand = new RelayCommand(Login, () => !State.IsLoggedIn);
             LogoutCommand = new RelayCommand(Logout, () => State.IsLoggedIn);
@@ -382,6 +384,100 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         private LogEntry _lastAlarm;
 
+        #region 알람 이력 (원본 Form1.AlarmHistory, 8baff6e)
+
+        private AlarmHistoryService _attachedAlarmHistory;
+        private AlarmHistoryViewModel _alarmHistoryModel;
+        private int _activeAlarmCount;
+
+        /// <summary>상단 바 알람 표시를 누르면 현재 알람과 이력 창을 연다 (모달 아님)</summary>
+        public ICommand ShowAlarmHistoryCommand { get; private set; }
+
+        /// <summary>지금 걸려 있는 알람 수 (상단 바 알람 표시 옆 숫자)</summary>
+        public int ActiveAlarmCount
+        {
+            get => _activeAlarmCount;
+            private set
+            {
+                if (SetProperty(ref _activeAlarmCount, value)) OnPropertyChanged(nameof(HasActiveAlarms));
+            }
+        }
+
+        public bool HasActiveAlarms => ActiveAlarmCount > 0;
+
+        public string AlarmChipToolTip => AlarmText + "\n(누르면 현재 알람과 알람 이력을 봅니다)";
+
+        /// <summary>알람 이력 서비스를 바꾼다 (스냅샷, 시험용). 창 모델도 새로 만든다.</summary>
+        public void UseAlarmHistory(AlarmHistoryService service)
+        {
+            Engine.AlarmHistory = service;
+            _alarmHistoryModel = null;
+            AttachAlarmHistory();
+        }
+
+        private void AttachAlarmHistory()
+        {
+            if (_attachedAlarmHistory != null) _attachedAlarmHistory.Changed -= OnAlarmHistoryChanged;
+            _attachedAlarmHistory = Engine.AlarmHistory;
+            _attachedAlarmHistory.Changed += OnAlarmHistoryChanged;
+            ActiveAlarmCount = _attachedAlarmHistory.ActiveCount;
+        }
+
+        private void OnAlarmHistoryChanged()
+        {
+            // 알람은 하드웨어 스레드에서도 생길 수 있다
+            if (!_dispatcher.CheckAccess())
+            {
+                _dispatcher.BeginInvoke(new Action(OnAlarmHistoryChanged));
+                return;
+            }
+            ActiveAlarmCount = Engine.AlarmHistory.ActiveCount;
+            if (_alarmHistoryModel != null && _alarmHistoryModel.IsOpen) _alarmHistoryModel.OnServiceChanged();
+        }
+
+        public AlarmHistoryViewModel AlarmHistoryModel =>
+            _alarmHistoryModel ?? (_alarmHistoryModel = new AlarmHistoryViewModel(Engine.AlarmHistory, OpenInExplorer, () => DateTime.Now));
+
+        public void ShowAlarmHistory()
+        {
+            try
+            {
+                var model = AlarmHistoryModel;
+                model.Open();
+                _dialogs.ShowAlarmHistory(model);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"알람 창 오류: {ex.Message}", "WARN");
+            }
+        }
+
+        /// <summary>파일이면 탐색기에서 그 파일을 선택해 열고, 폴더면 폴더를 연다.</summary>
+        private void OpenInExplorer(string path)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(path)) return;
+                string args;
+                if (System.IO.File.Exists(path))
+                {
+                    args = $"/select,\"{path}\"";
+                }
+                else
+                {
+                    System.IO.Directory.CreateDirectory(path);
+                    args = $"\"{path}\"";
+                }
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", args) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                _dialogs.Error($"폴더를 열지 못했습니다.\n{path}\n{ex.Message}", "알람 이력");
+            }
+        }
+
+        #endregion
+
         public string AlarmText => _lastAlarm?.Message ?? "알람 없음";
 
         public Brush AlarmBrush =>
@@ -415,6 +511,7 @@ namespace SemiconductorUi.Wpf.ViewModels
                 _lastAlarm = entry;
                 OnPropertyChanged(nameof(AlarmText));
                 OnPropertyChanged(nameof(AlarmBrush));
+                OnPropertyChanged(nameof(AlarmChipToolTip));
             }
         }
 
@@ -423,6 +520,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             _lastAlarm = null;
             OnPropertyChanged(nameof(AlarmText));
             OnPropertyChanged(nameof(AlarmBrush));
+            OnPropertyChanged(nameof(AlarmChipToolTip));
         }
 
         #endregion
