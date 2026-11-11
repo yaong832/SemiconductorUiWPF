@@ -489,6 +489,20 @@ namespace SemiconductorUi
 
         #endregion
 
+        #region 설정 백업
+
+        /// <summary>
+        /// 설정 백업 폴더. 비우면 문서\SemiconductorUi_Logs\Backups
+        /// </summary>
+        public static string BackupFolder => GetSetting("BackupFolder", "");
+
+        /// <summary>
+        /// 자동 백업(켤 때 하루 한 번)을 최근 몇 개까지 남길지 (0 = 지우지 않음). 수동·복원전 백업은 지우지 않습니다.
+        /// </summary>
+        public static int AutoBackupKeepCount => GetSetting("AutoBackupKeepCount", 30);
+
+        #endregion
+
         #region 설정 읽기 헬퍼 메서드
 
         /// <summary>
