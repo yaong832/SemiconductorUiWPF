@@ -1,0 +1,234 @@
+<Window x:Class="SemiconductorUi.Wpf.Views.EquipmentControlWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="장비 직접 제어" Width="880" Height="800" MinWidth="780" MinHeight="520"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource Surface}" FontFamily="{StaticResource UiFont}" FontSize="12.5"
+        Foreground="{StaticResource TextPrimary}">
+    <!-- 원본 Forms.EquipmentControlForm: 위 고정 바(상태 + 긴급 정지) / 스크롤되는 제어 그룹 / 아래 닫기 -->
+    <Window.Resources>
+        <SolidColorBrush x:Key="DotGreen" Color="#4CAF50"/>
+        <SolidColorBrush x:Key="DotAmber" Color="#FF9800"/>
+        <SolidColorBrush x:Key="DotBlue" Color="#2196F3"/>
+        <SolidColorBrush x:Key="DotOff" Color="#9E9E9E"/>
+        <SolidColorBrush x:Key="DotRed" Color="#F44336"/>
+
+        <!-- 흰 버튼 + 동작 종류 색 점 (원본 LampButtonPainter.AttachTagged). Tag = 점 색 -->
+        <Style x:Key="CtlButton" TargetType="Button">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="MinWidth" Value="74"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="{StaticResource Surface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Tag" Value="{StaticResource DotOff}"/>
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Ellipse x:Name="dot" Width="8" Height="8" Fill="{TemplateBinding Tag}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <ContentPresenter VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource ButtonFill}"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Primary}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource ButtonHover}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Opacity" Value="0.5"/>
+                                <Setter TargetName="dot" Property="Fill" Value="{StaticResource ButtonDisabledText}"/>
+                                <Setter Property="Foreground" Value="{StaticResource ButtonDisabledText}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="GroupCard" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Surface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="14,10,14,12"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style x:Key="GroupTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        <Style x:Key="RowLabel" TargetType="TextBlock">
+            <Setter Property="Width" Value="84"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style x:Key="StateText" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Margin" Value="8,0,0,0"/>
+        </Style>
+        <Style x:Key="Row" TargetType="DockPanel">
+            <Setter Property="Margin" Value="0,4"/>
+            <Setter Property="LastChildFill" Value="True"/>
+        </Style>
+
+        <!-- n초 입력 + [실행] + 남은 초 (원본 AddTimedOnOffControls) -->
+        <DataTemplate x:Key="TimedTemplate">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                <TextBox Text="{Binding SecondsText, UpdateSourceTrigger=PropertyChanged}" Width="52" Height="28"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Right" Padding="4,0"
+                         BorderBrush="{StaticResource Border}" MaxLength="4"
+                         IsEnabled="{Binding IsEnabled}"
+                         ToolTip="1~3600초"/>
+                <TextBlock Text="초" VerticalAlignment="Center" Margin="4,0,8,0" Foreground="{StaticResource TextSecondary}"/>
+                <Button Style="{StaticResource CtlButton}" Content="실행" MinWidth="60" Tag="{StaticResource DotAmber}"
+                        Command="{Binding RunCommand}" ToolTip="입력한 초만큼 ON(열림) 후 자동 OFF(닫힘)"/>
+                <TextBlock Text="{Binding RemainingText}" VerticalAlignment="Center" Foreground="{StaticResource Warning}" FontWeight="SemiBold"/>
+            </StackPanel>
+        </DataTemplate>
+    </Window.Resources>
+
+    <DockPanel>
+        <!-- 위 고정 바: 연결 상태와 긴급 정지 (스크롤해도 항상 보임) -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1"
+                Height="64">
+            <DockPanel Margin="16,0">
+                <Button DockPanel.Dock="Right" Content="긴급 정지 (서보 OFF)" Width="220" Height="42" Command="{Binding EmergencyStopCommand}"
+                        Style="{StaticResource DangerButton}" FontSize="13.5"
+                        ToolTip="두 축 서보를 끄고 메인 화면을 비상정지로 바꿉니다. 출력(진공, 실린더, 도어)은 지금 상태 그대로 둡니다."/>
+                <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontSize="14" FontWeight="Bold"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,16,0"
+                           ToolTip="{Binding StatusText}"/>
+            </DockPanel>
+        </Border>
+
+        <!-- 아래 바: 안내 + 닫기 -->
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0">
+            <DockPanel Margin="16,9">
+                <Button DockPanel.Dock="Right" Content="닫기" Width="100" Height="32" Style="{StaticResource SecondaryButton}"
+                        Click="OnCloseClick" IsCancel="True"/>
+                <TextBlock Text="{Binding ProcessHint}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,16,0"
+                           Foreground="{StaticResource TextSecondary}" FontSize="11.5"/>
+            </DockPanel>
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="16,14,16,2">
+                <!-- Chamber A/B/C -->
+                <ItemsControl ItemsSource="{Binding Chambers}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource GroupCard}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" Style="{StaticResource GroupTitle}"/>
+                                    <DockPanel Style="{StaticResource Row}">
+                                        <TextBlock Text="램프:" Style="{StaticResource RowLabel}"/>
+                                        <Button Style="{StaticResource CtlButton}" Content="ON" Tag="{StaticResource DotGreen}" Command="{Binding LampOnCommand}"/>
+                                        <Button Style="{StaticResource CtlButton}" Content="OFF" Command="{Binding LampOffCommand}"/>
+                                        <ContentControl Content="{Binding LampTimer}" ContentTemplate="{StaticResource TimedTemplate}"/>
+                                        <TextBlock Text="{Binding LampStateText}" Style="{StaticResource StateText}" HorizontalAlignment="Right"/>
+                                    </DockPanel>
+                                    <DockPanel Style="{StaticResource Row}">
+                                        <TextBlock Text="도어:" Style="{StaticResource RowLabel}"/>
+                                        <Button Style="{StaticResource CtlButton}" Content="열기" Tag="{StaticResource DotBlue}" Command="{Binding DoorOpenCommand}"/>
+                                        <Button Style="{StaticResource CtlButton}" Content="닫기" Command="{Binding DoorCloseCommand}"/>
+                                        <ContentControl Content="{Binding DoorTimer}" ContentTemplate="{StaticResource TimedTemplate}"/>
+                                        <TextBlock Text="{Binding DoorStateText}" Style="{StaticResource StateText}" HorizontalAlignment="Right"/>
+                                    </DockPanel>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- 3색 램프 -->
+                <Border Style="{StaticResource GroupCard}">
+                    <StackPanel>
+                        <TextBlock Text="3색 램프" Style="{StaticResource GroupTitle}"/>
+                        <ItemsControl ItemsSource="{Binding MainLamps}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Style="{StaticResource Row}">
+                                        <TextBlock Text="{Binding Name, StringFormat={}{0}:}" Style="{StaticResource RowLabel}" Foreground="{Binding Color}"/>
+                                        <Button Style="{StaticResource CtlButton}" Content="ON" Tag="{Binding Color}" Command="{Binding OnCommand}"/>
+                                        <Button Style="{StaticResource CtlButton}" Content="OFF" Command="{Binding OffCommand}"/>
+                                        <ContentControl Content="{Binding Timer}" ContentTemplate="{StaticResource TimedTemplate}"/>
+                                        <TextBlock Text="{Binding StateText}" Style="{StaticResource StateText}" HorizontalAlignment="Right"/>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- 일괄 제어 -->
+                <Border Style="{StaticResource GroupCard}">
+                    <StackPanel>
+                        <TextBlock Text="일괄 제어" Style="{StaticResource GroupTitle}"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <TextBlock Text="모든 문:" Style="{StaticResource RowLabel}"/>
+                            <Button Style="{StaticResource CtlButton}" Content="모두 열기" MinWidth="100" Tag="{StaticResource DotBlue}" Command="{Binding AllDoorsOpenCommand}"/>
+                            <Button Style="{StaticResource CtlButton}" Content="모두 닫기" MinWidth="100" Command="{Binding AllDoorsCloseCommand}"/>
+                            <TextBlock Text="모든 램프:" Style="{StaticResource RowLabel}" Margin="24,0,0,0"/>
+                            <Button Style="{StaticResource CtlButton}" Content="모두 켜기" MinWidth="100" Tag="{StaticResource DotGreen}" Command="{Binding AllLampsOnCommand}"/>
+                            <Button Style="{StaticResource CtlButton}" Content="모두 끄기" MinWidth="100" Command="{Binding AllLampsOffCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- TM 서보 모터 제어 -->
+                <Border Style="{StaticResource GroupCard}">
+                    <StackPanel>
+                        <TextBlock Text="TM 서보 모터 제어" Style="{StaticResource GroupTitle}"/>
+                        <DockPanel Style="{StaticResource Row}">
+                            <TextBlock Text="서보 전원:" Style="{StaticResource RowLabel}"/>
+                            <Button Style="{StaticResource CtlButton}" Content="ON" Tag="{StaticResource DotBlue}" Command="{Binding ServoOnCommand}"/>
+                            <Button Style="{StaticResource CtlButton}" Content="OFF" Command="{Binding ServoOffCommand}"/>
+                            <Button Style="{StaticResource CtlButton}" Content="원점복귀" MinWidth="90" Tag="{StaticResource DotAmber}" Command="{Binding HomeCommand}"
+                                    ToolTip="실린더 후진을 확인한 뒤 상하(Axis1) → 좌우(Axis2) 순서로 원점복귀합니다"/>
+                            <Button Style="{StaticResource CtlButton}" Content="티칭 위치" MinWidth="90" Tag="{StaticResource DotBlue}" Command="{Binding TeachingCommand}"/>
+                            <TextBlock Text="{Binding ServoStatusText}" Foreground="{Binding ServoStatusBrush}" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" Margin="8,0,0,0" TextTrimming="CharacterEllipsis"/>
+                        </DockPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <TextBlock Text="실린더:" Style="{StaticResource RowLabel}"/>
+                            <Button Style="{StaticResource CtlButton}" Content="전진" Tag="{StaticResource DotBlue}" Command="{Binding CylinderExtendCommand}"/>
+                            <Button Style="{StaticResource CtlButton}" Content="후진" Command="{Binding CylinderRetractCommand}"/>
+                            <TextBlock Text="{Binding CylinderStateText}" Style="{StaticResource StateText}"/>
+                        </DockPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <TextBlock Text="진공/배기:" Style="{StaticResource RowLabel}"/>
+                            <Button Style="{StaticResource CtlButton}" Content="진공 ON" MinWidth="84" Tag="{StaticResource DotGreen}" Command="{Binding VacuumOnCommand}"/>
+                            <Button Style="{StaticResource CtlButton}" Content="진공 OFF" MinWidth="84" Command="{Binding VacuumOffCommand}"/>
+                            <Button Style="{StaticResource CtlButton}" Content="배기 ON" MinWidth="84" Tag="{StaticResource DotBlue}" Command="{Binding ExhaustOnCommand}"/>
+                            <Button Style="{StaticResource CtlButton}" Content="배기 OFF" MinWidth="84" Command="{Binding ExhaustOffCommand}"/>
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,0,0">
+                                <TextBlock Text="{Binding VacuumStateText}" Style="{StaticResource StateText}"/>
+                                <TextBlock Text="{Binding ExhaustStateText}" Style="{StaticResource StateText}"/>
+                            </StackPanel>
+                        </DockPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,4">
+                            <TextBlock Text="진공 타이머:" Style="{StaticResource RowLabel}"/>
+                            <ContentControl Content="{Binding VacuumTimer}" ContentTemplate="{StaticResource TimedTemplate}" Margin="-12,0,0,0"/>
+                            <TextBlock Text="배기 타이머:" Style="{StaticResource RowLabel}" Margin="36,0,0,0"/>
+                            <ContentControl Content="{Binding ExhaustTimer}" ContentTemplate="{StaticResource TimedTemplate}" Margin="-12,0,0,0"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding TimerHint}" Foreground="{StaticResource TextSecondary}" FontSize="11.5" Margin="0,6,0,0"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

@@ -55,5 +55,8 @@ namespace SemiconductorUi.Wpf.Services
 
         /// <summary>웨이퍼 이력 별도 창 (원본 ShowWaferHistoryWindow). 모달이 아니며 창 하나를 다시 쓴다. 이미 떠 있으면 새로 읽는다.</summary>
         void ShowWaferHistory(ViewModels.WaferHistoryViewModel model);
+
+        /// <summary>장비 직접 제어 창 (원본 EquipmentControlForm, 모달). 창이 닫히면 model을 정리한다.</summary>
+        void ShowEquipmentControl(ViewModels.EquipmentControlViewModel model);
     }
 }

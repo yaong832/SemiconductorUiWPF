@@ -39,6 +39,8 @@ namespace SemiconductorUi.Wpf.ViewModels
             ApplyRecipeCommand = new RelayCommand(() => Run(() => Engine.ApplyRecipeButton(SelectedRecipeName)), () => State.IsLoggedIn);
             UnitDetail = new UnitDetailViewModel(key => Engine?.BuildUnitDetail(key));
             NotYetPortedCommand = new RelayCommand(p => _shell.AddLog($"'{p}' 기능은 다음 단계에서 이관됩니다.", "INFO"));
+            // 원본 ButtonEquipmentControl_Click (로그인 필요, 연결 안 됨이어도 창은 열린다)
+            EquipmentControlCommand = new RelayCommand(() => _shell.OpenEquipmentControl());
 
             State.PropertyChanged += (s, e) =>
             {
@@ -182,6 +184,7 @@ namespace SemiconductorUi.Wpf.ViewModels
         public ICommand WaferLoadingCommand { get; }
         public ICommand WaferUnloadingCommand { get; }
         public ICommand NotYetPortedCommand { get; }
+        public ICommand EquipmentControlCommand { get; }
         public ICommand ApplyRecipeCommand { get; }
 
         private string _selectedRecipeName;
