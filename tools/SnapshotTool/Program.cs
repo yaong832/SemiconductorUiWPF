@@ -86,6 +86,9 @@ namespace SnapshotTool
             // 유지보수 화면: 시뮬레이션 모드라 EtherCAT 미연결 상태
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "maintenance-1600x900.png"), 0, null,
                 vm => vm.CurrentPage = NavPage.Maintenance));
+            // 시스템 화면: 공정 중 (시뮬레이션이라 EtherCAT 미연결)
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "system-info-1600x900.png"), 75, null,
+                vm => vm.CurrentPage = NavPage.System));
             // I/O 모니터 별도 창: 연결된 장비의 값, 방금 바뀐 점 강조
             failures += Try(() => SnapIoMonitor(Path.Combine(outDir, "io-monitor.png")));
             // 유지보수 카운터 탭: 예시 횟수 (곧 점검 2개, 점검 필요 2개)
