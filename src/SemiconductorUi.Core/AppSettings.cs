@@ -39,6 +39,11 @@ namespace SemiconductorUi
         /// </summary>
         public static int DemoModeAutoExitSeconds => GetSetting("DemoModeAutoExitSeconds", 0);
 
+        /// <summary>
+        /// 변경 이력 폴더 (Change_yyyyMMdd.csv, 지우지 않음). 비우면 문서\SemiconductorUi_Logs\Changes
+        /// </summary>
+        public static string ChangeHistoryFolder => GetSetting("ChangeHistoryFolder", "");
+
         #endregion
 
         #region UI 설정
