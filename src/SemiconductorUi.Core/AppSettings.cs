@@ -48,6 +48,12 @@ namespace SemiconductorUi
         /// </summary>
         public static int MaxLogEntries => GetSetting("MaxLogEntries", 200);
 
+        /// <summary>알람 이력 폴더 (Alarm_yyyyMMdd.csv). 비우면 문서\SemiconductorUi_Logs\Alarms</summary>
+        public static string AlarmHistoryFolder => GetSetting("AlarmHistoryFolder", "");
+
+        /// <summary>알람 이력 보관 일수 (오늘 포함). 0이면 자동 삭제하지 않는다.</summary>
+        public static int AlarmHistoryRetentionDays => GetSetting("AlarmHistoryRetentionDays", 365);
+
         /// <summary>
         /// FOUP 최대 용량
         /// </summary>

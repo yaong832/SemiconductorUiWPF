@@ -1,4 +1,5 @@
 using System;
+using SemiconductorUi.Services;
 using System.Collections.Generic;
 using System.Linq;
 using SemiconductorUi.Controllers;
@@ -772,6 +773,7 @@ namespace SemiconductorUi.Process
             if (!IsTmHardwareModeAvailable()) return;
 
             AddLogMessage($"[하드웨어 오류] {errorMessage} - 자동 일시정지", errorType);
+            RecordAlarm(AlarmCodes.TmHardwareError, "TM", errorMessage);
             
             // 자동 일시정지
             if (SimulationRunning && !SimulationPaused)

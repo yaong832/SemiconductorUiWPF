@@ -9,6 +9,15 @@ namespace SemiconductorUi.Wpf
 {
     public partial class App : Application
     {
+        private MainViewModel _viewModel;
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            // 알람 이력 파일을 닫는다 (원본 Program.cs DisposeAlarmHistory)
+            _viewModel?.Engine.DisposeAlarmHistory();
+            base.OnExit(e);
+        }
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
@@ -21,6 +30,7 @@ namespace SemiconductorUi.Wpf
             IEthercatDevice ethercat = new Ieg3268Device(new IEG3268_Dll.IEG3268());
             var viewModel = new MainViewModel(dialogs, new SemiconductorUi.Repositories.UserRepositoryImpl(), ethercat);
 
+            _viewModel = viewModel;
             var window = new MainWindow { DataContext = viewModel };
             MainWindow = window;
             window.Show();
