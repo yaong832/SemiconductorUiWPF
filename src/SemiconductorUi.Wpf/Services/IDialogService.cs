@@ -40,5 +40,8 @@ namespace SemiconductorUi.Wpf.Services
         /// 이미 떠 있으면 앞으로 가져온다.
         /// </summary>
         void ShowIoMonitor(ViewModels.IoMonitorViewModel model);
+
+        /// <summary>유지보수 카운터 별도 창 (원본 ShowMaintenanceCounterWindow). 모달이 아니며 창 하나를 다시 쓴다.</summary>
+        void ShowMaintenanceCounters(ViewModels.MaintenanceCounterViewModel model);
     }
 }

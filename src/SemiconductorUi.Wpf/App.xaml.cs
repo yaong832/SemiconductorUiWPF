@@ -13,6 +13,8 @@ namespace SemiconductorUi.Wpf
 
         protected override void OnExit(ExitEventArgs e)
         {
+            // 마지막 10초 안에 센 유지보수 카운터도 남도록 저장한다 (원본 Form1.OnFormClosed).
+            _viewModel?.DisposeMaintenanceCounters();
             // 날짜별 로그 파일을 닫는다. 종료 직전 로그까지 이미 파일에 쓰여 있다 (원본 Program.cs).
             var logger = _viewModel?.Logger;
             if (logger != null)
@@ -42,6 +44,8 @@ namespace SemiconductorUi.Wpf
             var window = new MainWindow { DataContext = viewModel };
             MainWindow = window;
             window.Show();
+            // 원본 Form1.OnShown: 창이 뜬 뒤 유지보수 카운터 시작
+            viewModel.StartMaintenanceCounters((ethercat as Ieg3268Device)?.Usage);
         }
 
         private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

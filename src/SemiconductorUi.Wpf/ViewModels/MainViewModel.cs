@@ -84,7 +84,10 @@ namespace SemiconductorUi.Wpf.ViewModels
                 OpenFolderOf);
             Maintenance = new MaintenanceViewModel(
                 new IoMonitorViewModel(() => Ethercat, () => IsEthercatConnected),
-                OpenIoMonitorWindow);
+                new MaintenanceCounterViewModel(() => MaintenanceCounters, () => State.IsLoggedIn, () => State.CurrentUser,
+                    () => IsAdmin, OpenFolder),
+                OpenIoMonitorWindow,
+                OpenMaintenanceCounterWindow);
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _clockTimer.Tick += (s, e) => Now = DateTime.Now;
@@ -138,6 +141,56 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         /// <summary>유지보수 화면 (원본 MaintenanceForm, I/O 모니터 포함)</summary>
         public MaintenanceViewModel Maintenance { get; }
+
+        /// <summary>유지보수 카운터. 장비 창구가 없거나 시작하지 못했으면 null (원본 Form1.MaintenanceCounters)</summary>
+        public MaintenanceCounterService MaintenanceCounters { get; private set; }
+
+        /// <summary>
+        /// 유지보수 카운터를 시작한다 (원본 Form1.StartMaintenanceCounters, 메인 창이 뜬 뒤).
+        /// 실제 장비 창구(Ieg3268Device)가 보낸 명령 횟수만 세므로 usage가 없으면 시작하지 않는다.
+        /// </summary>
+        public void StartMaintenanceCounters(HardwareUsageCounters usage, string folder = null)
+        {
+            if (MaintenanceCounters != null || usage == null) return;
+            try
+            {
+                var service = folder == null
+                    ? MaintenanceCounterService.CreateFromSettings(usage, AddLog)
+                    : new MaintenanceCounterService(folder, usage, AddLog);
+                service.Start();
+                MaintenanceCounters = service;
+                Maintenance.Counters.RefreshAll();
+            }
+            catch (Exception ex)
+            {
+                MaintenanceCounters = null;
+                AddLog($"유지보수 카운터를 시작하지 못했습니다: {ex.Message}", "WARN");
+            }
+        }
+
+        /// <summary>멈추고 마지막 10초 안에 센 값까지 저장한다 (프로그램 종료 때)</summary>
+        public void DisposeMaintenanceCounters()
+        {
+            var service = MaintenanceCounters;
+            MaintenanceCounters = null;
+            service?.Dispose();
+        }
+
+        private void OpenMaintenanceCounterWindow()
+        {
+            try
+            {
+                _dialogs.ShowMaintenanceCounters(Maintenance.Counters);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"유지보수 카운터 창 오류: {ex.Message}", "WARN");
+            }
+        }
+
+        /// <summary>파일 탐색기로 폴더를 연다.</summary>
+        private static void OpenFolder(string folder) =>
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true });
 
         /// <summary>I/O 모니터 별도 창 (원본 Form1.ShowIoMonitorWindow)</summary>
         private void OpenIoMonitorWindow()
