@@ -34,5 +34,11 @@ namespace SemiconductorUi.Wpf.Services
 
         /// <summary>TM 티칭 위치 창 (원본 TeachingPositionForm.ShowDialog)</summary>
         void ShowTeachingPositions(ViewModels.TeachingPositionViewModel model);
+
+        /// <summary>
+        /// 현재 알람과 알람 이력 창 (원본 ShowAlarmHistoryWindow). 모달이 아닌 창 하나를 다시 쓰며,
+        /// model.IsOpen이 false가 되면 숨긴다. 이미 떠 있으면 앞으로 가져온다.
+        /// </summary>
+        void ShowAlarmHistory(ViewModels.AlarmHistoryViewModel model);
     }
 }
