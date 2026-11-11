@@ -35,6 +35,9 @@ namespace SemiconductorUi.Wpf.Services
         /// <summary>TM 티칭 위치 창 (원본 TeachingPositionForm.ShowDialog)</summary>
         void ShowTeachingPositions(ViewModels.TeachingPositionViewModel model);
 
+        /// <summary>설정 백업 · 복원 창 (원본 ShowSettingsBackupWindow). 모달이 아니며 창 하나를 다시 쓴다.</summary>
+        void ShowSettingsBackup(ViewModels.SettingsBackupViewModel model);
+
         /// <summary>
         /// I/O 모니터 별도 창 (원본 ShowIoMonitorWindow). 모달이 아니며 창 하나를 다시 쓴다.
         /// 이미 떠 있으면 앞으로 가져온다.

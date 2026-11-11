@@ -38,6 +38,8 @@ namespace SnapshotTool
             // 챔버/FOUP 상세 창 (공정 중)
             failures += Try(() => SnapUnitDetail(outDir, 75, "PMA", "PMB", "FOUP A", "FOUP B"));
             failures += Try(() => SnapConfig(Path.Combine(outDir, "config.png")));
+            // 설정 백업 · 복원 창: 복원 예약이 있고, 수동 백업에서 두 항목을 되돌릴지 묻는 중
+            failures += Try(() => SnapSettingsBackup(Path.Combine(outDir, "settings-backup.png")));
             failures += Try(() => SnapRecipeManager(Path.Combine(outDir, "recipe-manager.png")));
             failures += Try(() => SnapUserManagement(Path.Combine(outDir, "user-management.png")));
             failures += Try(() => SnapTeaching(outDir));
@@ -280,6 +282,62 @@ namespace SnapshotTool
             host.UpdateLayout();
             Save(host, w, h, path);
             window.Close();
+        }
+
+        private static void SnapSettingsBackup(string path)
+        {
+            var store = new SampleBackupStore();
+            var model = new SettingsBackupViewModel(() => true, () => "admin", () => true, (m, l) => { }, f => { }, store,
+                () => new DateTime(2026, 11, 11, 9, 10, 0));
+            model.RefreshAll();
+            model.SelectedBackup = model.Backups.First(b => b.IsManual);
+            foreach (var c in model.Choices.Where(c => c.Key == "Teaching" || c.Key == "Recipes")) c.IsChecked = true;
+            model.RestoreCommand.Execute(null);
+            SnapDialog(new SemiconductorUi.Wpf.Views.SettingsBackupWindow(model), model, path);
+        }
+
+        /// <summary>파일을 건드리지 않는 예시 백업 목록</summary>
+        private sealed class SampleBackupStore : ISettingsBackupStore
+        {
+            private static readonly string Root = @"C:\Users\operator\Documents\SemiconductorUi_Logs\Backups";
+
+            public string BackupRoot => Root;
+            public System.Collections.Generic.IReadOnlyList<SemiconductorUi.Services.SettingsBackupComponent> Components =>
+                SemiconductorUi.Services.SettingsBackup.Components;
+            public int AutoBackupKeepCount => 30;
+
+            public System.Collections.Generic.List<SemiconductorUi.Services.SettingsBackupInfo> ListBackups()
+            {
+                var all = Components.Select(c => c.Key).ToList();
+                SemiconductorUi.Services.SettingsBackupInfo B(DateTime t, string kind, string user, string note, System.Collections.Generic.List<string> keys) =>
+                    new SemiconductorUi.Services.SettingsBackupInfo
+                    {
+                        Folder = Path.Combine(Root, t.ToString("yyyyMMdd_HHmmss") + "_" + kind),
+                        Time = t, Kind = kind, User = user, Note = note, Components = keys
+                    };
+                return new System.Collections.Generic.List<SemiconductorUi.Services.SettingsBackupInfo>
+                {
+                    B(new DateTime(2026, 11, 11, 8, 58, 2), "자동", "(자동)", "프로그램 시작", all),
+                    B(new DateTime(2026, 11, 10, 17, 42, 10), "수동", "admin", "레시피 B 시간 바꾸기 전", all),
+                    B(new DateTime(2026, 11, 10, 8, 55, 31), "자동", "(자동)", "프로그램 시작", all),
+                    B(new DateTime(2026, 11, 9, 8, 57, 12), "복원전", "admin", "복원 전 지금 설정", all),
+                    B(new DateTime(2026, 11, 9, 8, 50, 40), "자동", "(자동)", "프로그램 시작", all.Where(k => k != "Users").ToList()),
+                };
+            }
+
+            public SemiconductorUi.Services.SettingsBackupInfo CreateBackup(string kind, string user, string note, DateTime now) =>
+                throw new NotSupportedException();
+
+            public SemiconductorUi.Services.PendingRestoreInfo GetPendingRestore() => new SemiconductorUi.Services.PendingRestoreInfo
+            {
+                BackupFolder = Path.Combine(Root, "20261110_174210_수동"),
+                Components = new System.Collections.Generic.List<string> { "Thresholds" },
+                User = "admin",
+                RequestedAt = new DateTime(2026, 11, 11, 9, 5, 0),
+            };
+
+            public void ScheduleRestore(SemiconductorUi.Services.SettingsBackupInfo backup, System.Collections.Generic.IEnumerable<string> componentKeys, string user, DateTime now) { }
+            public bool CancelPendingRestore() => false;
         }
 
         /// <summary>임시 폴더에 변경 이력 예시를 쓴다 (오늘, 어제, 사흘 전)</summary>
@@ -526,6 +584,7 @@ namespace SnapshotTool
         public void ShowConfig(ConfigViewModel model) { }
         public void ShowRecipeManager(RecipeManagerViewModel model) { }
         public void ShowTeachingPositions(TeachingPositionViewModel model) { }
+        public void ShowSettingsBackup(SettingsBackupViewModel model) { }
         public void ShowIoMonitor(IoMonitorViewModel model) { }
         public void ShowMaintenanceCounters(MaintenanceCounterViewModel model) { }
         public void ShowAlarmHistory(AlarmHistoryViewModel model) { }
