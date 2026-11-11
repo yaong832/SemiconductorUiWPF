@@ -48,4 +48,22 @@ jobs:
           cp snapshots/*.png "../snap/$dest/"
           git -C ../snap add -A
           git -C ../snap commit -m "UI snapshots for $dest (${{ github.event.pull_request.head.sha }})" || exit 0
-          git -C ../snap push origin ci-snapshots
+          # 여러 PR의 빌드가 동시에 끝나면 먼저 올린 쪽 때문에 push가 거절된다 (cannot lock ref).
+          # PR마다 자기 폴더(pr-N)만 바꾸므로 최신 ci-snapshots 위로 다시 얹고 재시도한다.
+          for attempt in 1 2 3 4 5; do
+            if git -C ../snap push origin ci-snapshots; then
+              exit 0
+            fi
+            echo "push 거절됨 ($attempt/5): 최신 ci-snapshots 위로 다시 얹고 재시도"
+            sleep $((attempt * 5))
+            git -C ../snap fetch origin ci-snapshots
+            git -C ../snap rebase -X theirs origin/ci-snapshots || {
+              git -C ../snap rebase --abort || true
+              git -C ../snap reset --hard origin/ci-snapshots
+              rm -rf "../snap/$dest" && mkdir -p "../snap/$dest"
+              cp snapshots/*.png "../snap/$dest/"
+              git -C ../snap add -A
+              git -C ../snap commit -m "UI snapshots for $dest (${{ github.event.pull_request.head.sha }})" || exit 0
+            }
+          done
+          exit 1
