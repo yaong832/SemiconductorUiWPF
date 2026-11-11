@@ -50,6 +50,10 @@ namespace SnapshotTool
                     vm.Engine.StartTrendCapture();
                 },
                 vm => { vm.CurrentPage = NavPage.Trend; vm.Trend.Units[2].IsChecked = false; }));
+            // 알람 이력 창, 상단 바 알람 수 표시
+            failures += Try(() => SnapAlarmHistory(Path.Combine(outDir, "alarm-history.png")));
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-alarms-1600x900.png"), 0, null,
+                vm => { vm.UseAlarmHistory(SampleAlarmHistory()); vm.AddLog("PMA 온도 이탈(알람): PV=31.0°C, SV=23.0°C (Δ=8.0°C)", "ALARM"); }));
             // 보고서 화면: 공정 중 시험 알람을 하나 넣은 로그
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "report-1600x900.png"), 75, null,
                 vm =>
@@ -192,6 +196,28 @@ namespace SnapshotTool
                 Save(host, (int)Math.Ceiling(size.Width), (int)Math.Ceiling(size.Height), Path.Combine(outDir, $"unit-detail-{name}.png"));
                 window.ForceClose();
             }
+        }
+
+        /// <summary>임시 폴더에 기록하는 알람 이력: 비상정지·서보 알람은 해제되고 챔버 환경 알람 둘이 남은 모습</summary>
+        private static SemiconductorUi.Services.AlarmHistoryService SampleAlarmHistory()
+        {
+            var folder = Path.Combine(Path.GetTempPath(), "SnapshotAlarms_" + Guid.NewGuid().ToString("N"));
+            var service = new SemiconductorUi.Services.AlarmHistoryService(
+                new SemiconductorUi.Services.DailyLogFileWriter(folder, 0,
+                    SemiconductorUi.Services.AlarmHistoryService.FilePrefix, SemiconductorUi.Services.AlarmHistoryService.FileHeader));
+            service.Raise(SemiconductorUi.Services.AlarmCodes.EmergencyStop, "장비", "긴급 정지 버튼");
+            service.Raise(SemiconductorUi.Services.AlarmCodes.ServoFaultAxis1, "TM", "Axis1(상하) 상태워드 0x0218");
+            service.ClearEmergencyStopGroup("operator");
+            service.Raise(SemiconductorUi.Services.AlarmCodes.ForEnvironment("PMA", SemiconductorUi.Services.AlarmCodes.EnvTemperature), "Chamber A", "PV=31.0°C, SV=23.0°C (Δ=8.0°C)");
+            service.Raise(SemiconductorUi.Services.AlarmCodes.ForEnvironment("PMB", SemiconductorUi.Services.AlarmCodes.EnvGasLeakO2), "Chamber B", "PV=6.2 sccm (SV=0)");
+            return service;
+        }
+
+        private static void SnapAlarmHistory(string path)
+        {
+            var model = new AlarmHistoryViewModel(SampleAlarmHistory(), _ => { });
+            model.Open();
+            SnapDialog(new SemiconductorUi.Wpf.Views.AlarmHistoryWindow(), model, path);
         }
 
         private static void SnapConfig(string path)
@@ -387,6 +413,7 @@ namespace SnapshotTool
         public void ShowTeachingPositions(TeachingPositionViewModel model) { }
         public void ShowIoMonitor(IoMonitorViewModel model) { }
         public void ShowMaintenanceCounters(MaintenanceCounterViewModel model) { }
+        public void ShowAlarmHistory(AlarmHistoryViewModel model) { }
     }
 
     /// <summary>I/O 모니터 스냅샷용: 공정 대기 중 모습 (녹색 램프, 도어 닫힘, 실린더 후진, 진공 ON)</summary>

@@ -15,6 +15,8 @@ namespace SemiconductorUi.Wpf
         {
             // 마지막 10초 안에 센 유지보수 카운터도 남도록 저장한다 (원본 Form1.OnFormClosed).
             _viewModel?.DisposeMaintenanceCounters();
+            // 알람 이력 파일을 닫는다 (원본 Program.cs DisposeAlarmHistory)
+            _viewModel?.Engine.DisposeAlarmHistory();
             // 날짜별 로그 파일을 닫는다. 종료 직전 로그까지 이미 파일에 쓰여 있다 (원본 Program.cs).
             var logger = _viewModel?.Logger;
             if (logger != null)
