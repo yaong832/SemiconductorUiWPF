@@ -69,6 +69,32 @@ namespace SemiconductorUi.Wpf.Services
             window.ShowDialog();
         }
 
+        private SettingsBackupWindow _backup;
+
+        public void ShowSettingsBackup(SettingsBackupViewModel model)
+        {
+            var main = Application.Current?.MainWindow;
+            if (_backup == null)
+            {
+                _backup = new SettingsBackupWindow(model);
+                if (main != null && main.IsLoaded)
+                {
+                    _backup.Owner = main;
+                    main.Closing += (s, e) => _backup?.ForceClose();
+                }
+                else
+                {
+                    _backup.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+            }
+
+            // 이미 떠 있으면 새로 읽는다 (원본 RefreshAll)
+            if (!_backup.IsVisible) _backup.Show();
+            else model.RefreshAll();
+            if (_backup.WindowState == WindowState.Minimized) _backup.WindowState = WindowState.Normal;
+            _backup.Activate();
+        }
+
         private UnitDetailWindow _unitDetail;
 
         public void ShowUnitDetail(UnitDetailViewModel detail)

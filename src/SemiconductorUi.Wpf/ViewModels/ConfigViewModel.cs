@@ -23,6 +23,12 @@ namespace SemiconductorUi.Wpf.ViewModels
         /// <summary>TM 티칭 위치 버튼 (원본 OnOpenTeaching)</summary>
         public Action OnOpenTeaching;
 
+        /// <summary>백업 · 복원 버튼 (원본 OnOpenBackup). 백업 창은 모달이 아니어서 이 창이 닫힌 뒤에 메인 화면이 연다.</summary>
+        public Action OnOpenBackup;
+
+        /// <summary>창을 열 때 값 (저장하지 않은 변경이 있는지 보려고)</summary>
+        private EnvThresholdSnapshot _loaded;
+
         /// <summary>창 닫기. true면 저장하고 닫음</summary>
         public event EventHandler<bool> CloseRequested;
 
@@ -55,8 +61,10 @@ namespace SemiconductorUi.Wpf.ViewModels
             CancelCommand = new RelayCommand(() => CloseRequested?.Invoke(this, false));
             ResetCommand = new RelayCommand(Reset);
             TeachingCommand = new RelayCommand(() => OnOpenTeaching?.Invoke());
+            BackupCommand = new RelayCommand(OpenBackup);
 
             Load(initial ?? CreateDefault());
+            _loaded = ToSnapshot();
         }
 
         private const string RatioHint = "비율은 소수로 입력합니다 (0.20 = SV의 20%).";
@@ -78,6 +86,7 @@ namespace SemiconductorUi.Wpf.ViewModels
         public ICommand CancelCommand { get; }
         public ICommand ResetCommand { get; }
         public ICommand TeachingCommand { get; }
+        public ICommand BackupCommand { get; }
 
         /// <summary>원본 ConfigForm.CreateDefaultThresholds (AppSettings 기본값)</summary>
         public static EnvThresholdSnapshot CreateDefault() => new EnvThresholdSnapshot
@@ -169,6 +178,38 @@ namespace SemiconductorUi.Wpf.ViewModels
             {
                 _dialogs.Error($"설정 저장 중 오류가 발생했습니다:\n{ex.Message}", "오류");
             }
+        }
+
+        /// <summary>원본 ConfigForm.btnBackup_Click: 저장하지 않은 변경이 있으면 묻고, 이 창을 닫은 뒤 백업 창을 연다</summary>
+        private void OpenBackup()
+        {
+            if (OnOpenBackup == null) return;
+            if (!SameThresholds(ToSnapshot(), _loaded) &&
+                !_dialogs.Confirm("저장하지 않은 알람 임계값 변경이 있습니다.\n저장하지 않고 백업 · 복원 창을 열까요?", "백업 · 복원"))
+            {
+                return;
+            }
+            OnOpenBackup.Invoke();
+            CloseRequested?.Invoke(this, false);
+        }
+
+        /// <summary>화면 입력칸은 소수 자리가 정해져 있어 작은 차이는 같은 값으로 본다 (원본 SameThresholds)</summary>
+        internal static bool SameThresholds(EnvThresholdSnapshot a, EnvThresholdSnapshot b)
+        {
+            if (a == null || b == null) return a == b;
+            const double eps = 0.0005;
+            return Math.Abs(a.TempWarn - b.TempWarn) < eps
+                && Math.Abs(a.TempAlarm - b.TempAlarm) < eps
+                && Math.Abs(a.PressWarnRatio - b.PressWarnRatio) < eps
+                && Math.Abs(a.PressAlarmRatio - b.PressAlarmRatio) < eps
+                && Math.Abs(a.PressWarnAbs - b.PressWarnAbs) < eps
+                && Math.Abs(a.PressAlarmAbs - b.PressAlarmAbs) < eps
+                && Math.Abs(a.RfWarnRatio - b.RfWarnRatio) < eps
+                && Math.Abs(a.RfAlarmRatio - b.RfAlarmRatio) < eps
+                && Math.Abs(a.GasWarn - b.GasWarn) < eps
+                && Math.Abs(a.GasAlarm - b.GasAlarm) < eps
+                && Math.Abs(a.GasLeakWarn - b.GasLeakWarn) < eps
+                && Math.Abs(a.GasLeakAlarm - b.GasLeakAlarm) < eps;
         }
 
         private void Reset()

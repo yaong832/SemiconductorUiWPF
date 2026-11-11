@@ -82,6 +82,8 @@ namespace SemiconductorUi.Wpf.ViewModels
             Report = new ReportViewModel(Logs, dialogs,
                 (rows, tag) => LogCsvExporter.Save(rows, tag, DateTime.Now),
                 OpenFolderOf);
+            Backup = new SettingsBackupViewModel(() => State.IsLoggedIn, () => State.CurrentUser, () => IsAdmin, AddLog,
+                folder => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true }));
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _clockTimer.Tick += (s, e) => Now = DateTime.Now;
@@ -132,6 +134,22 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         /// <summary>보고서 화면 (원본 ReportForm)</summary>
         public ReportViewModel Report { get; }
+
+        /// <summary>설정 백업 · 복원 창 (원본 SettingsBackupForm)</summary>
+        public SettingsBackupViewModel Backup { get; }
+
+        /// <summary>원본 Form1.ShowSettingsBackupWindow</summary>
+        private void OpenSettingsBackup()
+        {
+            try
+            {
+                _dialogs.ShowSettingsBackup(Backup);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"설정 백업 창 오류: {ex.Message}", "WARN");
+            }
+        }
 
         /// <summary>파일 탐색기에서 파일이 있는 폴더를 열고 그 파일을 고른다.</summary>
         private void OpenFolderOf(string filePath)
@@ -503,6 +521,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             }
             try
             {
+                bool openBackup = false;
                 var model = new ConfigViewModel(_dialogs, Engine.GetAlarmThresholdsSnapshot(), SaveThresholds)
                 {
                     OnSaved = snapshot =>
@@ -512,8 +531,11 @@ namespace SemiconductorUi.Wpf.ViewModels
                     },
                     // 원본 configForm.OnOpenTeaching = OpenTeachingPositionEditor
                     OnOpenTeaching = OpenTeachingPositions,
+                    // 원본 cf.OnOpenBackup: 설정 창이 닫힌 뒤 백업 창(모달 아님)을 연다
+                    OnOpenBackup = () => openBackup = true,
                 };
                 _dialogs.ShowConfig(model);
+                if (openBackup) OpenSettingsBackup();
             }
             catch (Exception ex)
             {

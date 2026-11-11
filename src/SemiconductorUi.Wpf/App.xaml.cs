@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Threading;
 using SemiconductorUi.Hardware;
@@ -31,11 +32,21 @@ namespace SemiconductorUi.Wpf
                 MessageBox.Show(msg, "오류", MessageBoxButton.OK, MessageBoxImage.Error);
             DispatcherUnhandledException += OnDispatcherUnhandledException;
 
+            // 설정 파일을 읽기 전에: 예약된 설정 복원, 하루 한 번 자동 백업 (원본 Program.Main)
+            var startupNotes = SemiconductorUi.Services.SettingsBackup.RunStartupTasks(DateTime.Now, out bool settingsRestored);
+            var restoreNotes = startupNotes.Where(n => n.AboutRestore).Select(n => n.Message).ToList();
+            if (restoreNotes.Count > 0)
+            {
+                MessageBox.Show(string.Join("\n\n", restoreNotes), "설정 복원", MessageBoxButton.OK,
+                    settingsRestored ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            }
+
             var dialogs = new DialogService();
             IEthercatDevice ethercat = new Ieg3268Device(new IEG3268_Dll.IEG3268());
             var viewModel = new MainViewModel(dialogs, new SemiconductorUi.Repositories.UserRepositoryImpl(), ethercat);
 
             _viewModel = viewModel;
+            foreach (var note in startupNotes) viewModel.AddLog(note.Message, note.Level);
             if (viewModel.Logger.FileLoggingStartMessage != null)
                 viewModel.AddLog(viewModel.Logger.FileLoggingStartMessage, "INFO");
 
