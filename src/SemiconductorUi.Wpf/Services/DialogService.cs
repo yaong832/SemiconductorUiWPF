@@ -69,6 +69,30 @@ namespace SemiconductorUi.Wpf.Services
             window.ShowDialog();
         }
 
+        private IoMonitorWindow _ioMonitor;
+
+        public void ShowIoMonitor(IoMonitorViewModel model)
+        {
+            var main = Application.Current?.MainWindow;
+            if (_ioMonitor == null)
+            {
+                _ioMonitor = new IoMonitorWindow(model);
+                if (main != null && main.IsLoaded)
+                {
+                    _ioMonitor.Owner = main;
+                    main.Closing += (s, e) => _ioMonitor?.ForceClose();
+                }
+                else
+                {
+                    _ioMonitor.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+            }
+
+            if (!_ioMonitor.IsVisible) _ioMonitor.Show();
+            if (_ioMonitor.WindowState == WindowState.Minimized) _ioMonitor.WindowState = WindowState.Normal;
+            _ioMonitor.Activate();
+        }
+
         private UnitDetailWindow _unitDetail;
 
         public void ShowUnitDetail(UnitDetailViewModel detail)

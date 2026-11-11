@@ -82,6 +82,9 @@ namespace SemiconductorUi.Wpf.ViewModels
             Report = new ReportViewModel(Logs, dialogs,
                 (rows, tag) => LogCsvExporter.Save(rows, tag, DateTime.Now),
                 OpenFolderOf);
+            Maintenance = new MaintenanceViewModel(
+                new IoMonitorViewModel(() => Ethercat, () => IsEthercatConnected),
+                OpenIoMonitorWindow);
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _clockTimer.Tick += (s, e) => Now = DateTime.Now;
@@ -133,6 +136,23 @@ namespace SemiconductorUi.Wpf.ViewModels
         /// <summary>보고서 화면 (원본 ReportForm)</summary>
         public ReportViewModel Report { get; }
 
+        /// <summary>유지보수 화면 (원본 MaintenanceForm, I/O 모니터 포함)</summary>
+        public MaintenanceViewModel Maintenance { get; }
+
+        /// <summary>I/O 모니터 별도 창 (원본 Form1.ShowIoMonitorWindow)</summary>
+        private void OpenIoMonitorWindow()
+        {
+            try
+            {
+                _dialogs.ShowIoMonitor(Maintenance.Io);
+                AddLog("I/O 모니터 열기 (읽기 전용)", "INFO");
+            }
+            catch (Exception ex)
+            {
+                AddLog($"I/O 모니터 오류: {ex.Message}", "WARN");
+            }
+        }
+
         /// <summary>파일 탐색기에서 파일이 있는 폴더를 열고 그 파일을 고른다.</summary>
         private void OpenFolderOf(string filePath)
         {
@@ -174,16 +194,21 @@ namespace SemiconductorUi.Wpf.ViewModels
                     else OpenModal();
                     return;
                 }
+                var previous = _currentPage;
                 if (SetProperty(ref _currentPage, value))
                 {
                     OnPropertyChanged(nameof(IsOperatePage));
                     OnPropertyChanged(nameof(IsTrendPage));
                     OnPropertyChanged(nameof(IsReportPage));
+                    OnPropertyChanged(nameof(IsMaintenancePage));
                     OnPropertyChanged(nameof(IsPlaceholderPage));
                     OnPropertyChanged(nameof(CurrentPageTitle));
                     OnPropertyChanged(nameof(ViewTitle));
                     // 원본 NavigateToSection(Trend): 들어갈 때 수집 시작
                     if (value == NavPage.Trend) Trend.OnShown();
+                    // I/O 모니터는 보이는 동안만 읽는다
+                    if (previous == NavPage.Maintenance) Maintenance.OnHidden();
+                    if (value == NavPage.Maintenance) Maintenance.OnShown();
                 }
             }
         }
@@ -194,8 +219,10 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         public bool IsReportPage => CurrentPage == NavPage.Report;
 
+        public bool IsMaintenancePage => CurrentPage == NavPage.Maintenance;
+
         /// <summary>아직 이관하지 않은 메뉴</summary>
-        public bool IsPlaceholderPage => !IsOperatePage && !IsTrendPage && !IsReportPage;
+        public bool IsPlaceholderPage => !IsOperatePage && !IsTrendPage && !IsReportPage && !IsMaintenancePage;
 
         public string CurrentPageTitle
         {
