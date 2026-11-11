@@ -159,6 +159,7 @@ namespace SemiconductorUi.Process
 
             // SimulationController를 통해 시뮬레이션 시작
             SimulationController?.Start(IsTmHardwareModeAvailable());
+            RecordWaferLotStarted(targetLoadCount);
             
             // 하드웨어 모드와 시뮬레이션 모드 구분하여 로그 메시지 표시
             if (IsTmHardwareModeAvailable())
@@ -256,6 +257,7 @@ namespace SemiconductorUi.Process
 
         internal void AbortSimulation(string reason, bool setErrorState)
         {
+            RecordWaferLotAborted(reason);
             SimulationController?.Abort();
             ClearAlarmHold();
             if (setErrorState)

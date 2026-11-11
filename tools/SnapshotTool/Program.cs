@@ -74,6 +74,15 @@ namespace SnapshotTool
                     vm.CurrentPage = NavPage.Report;
                     vm.CurrentReportTab = ReportTab.Changes;
                 }));
+            // 보고서 → 웨이퍼 이력 탭: 진행 중 2장, 완료 4장, 중단 1장. 레시피보다 오래 걸린 웨이퍼를 고른 모습
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "wafer-history-1600x900.png"), 0, null,
+                vm =>
+                {
+                    vm.Engine.WaferHistory = SeedWaferHistory();
+                    vm.CurrentPage = NavPage.Report;
+                    vm.CurrentReportTab = ReportTab.Wafers;
+                    vm.WaferHistoryView.SelectedRow = vm.WaferHistoryView.Rows.First(r => r.BState == WaferStepState.Over);
+                }));
             // 유지보수 화면: 시뮬레이션 모드라 EtherCAT 미연결 상태
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "maintenance-1600x900.png"), 0, null,
                 vm => vm.CurrentPage = NavPage.Maintenance));
@@ -332,6 +341,58 @@ namespace SnapshotTool
         }
 
         /// <summary>임시 폴더에 변경 이력 예시를 쓴다 (오늘, 어제, 사흘 전)</summary>
+        /// <summary>임시 폴더에 웨이퍼 이력 예시를 쓴다: 끝난 작업 2개(완료 4장, 중단 1장)와 지금 진행 중인 작업 (2장)</summary>
+        private static SemiconductorUi.Services.WaferHistoryService SeedWaferHistory()
+        {
+            var now = DateTime.Now;
+            var t = now.AddHours(-2).AddMinutes(-10);
+            var h = new SemiconductorUi.Services.WaferHistoryService(NewTempFolder("wafers"), (m, l) => { }, () => t);
+
+            void Wafer(int id, params (string Chamber, int Set, double Actual)[] steps)
+            {
+                h.NotePickup(id, "FOUP A"); t = t.AddSeconds(9);
+                foreach (var s in steps)
+                {
+                    h.NoteDropoff(id, s.Chamber); t = t.AddSeconds(4);
+                    h.NoteProcessStart(id, s.Chamber, s.Set); t = t.AddSeconds(s.Actual);
+                    h.NoteProcessEnd(id, s.Chamber); t = t.AddSeconds(5);
+                    h.NotePickup(id, s.Chamber); t = t.AddSeconds(9);
+                }
+                h.NoteDropoff(id, "FOUP B"); t = t.AddSeconds(3);
+            }
+
+            // 작업 1: 병렬 모드 3장. 3번은 Chamber B에서 알람 홀드로 31초 더 걸림
+            h.LotStarted(3, "PR-Coat-200", false, true, "kim");
+            Wafer(1, ("A", 60, 60.2), ("B", 120, 120.4));
+            Wafer(2, ("A", 60, 60.1), ("C", 120, 120.3));
+            Wafer(3, ("A", 60, 60.3), ("B", 120, 151.0));
+            h.LotFinished();
+            t = t.AddMinutes(25);
+
+            // 작업 2: 2차 노광 2장. 2번이 Chamber A 공정 중 비상정지
+            h.LotStarted(2, "PR-Expose", true, true, "lee");
+            Wafer(1, ("A", 45, 45.2), ("B", 90, 90.1), ("C", 90, 90.4));
+            h.NotePickup(2, "FOUP A"); t = t.AddSeconds(9);
+            h.NoteDropoff(2, "A"); t = t.AddSeconds(4);
+            h.NoteProcessStart(2, "A", 45); t = t.AddSeconds(21);
+            h.LotAborted("비상정지. 알람 리셋으로 해제한 뒤 서보 ON과 원점복귀를 다시 하세요.");
+
+            // 작업 3 (진행 중): 1번은 Chamber B 공정 중, 2번은 Chamber A 공정 중
+            t = now.AddSeconds(-120);
+            h.LotStarted(4, "PR-Coat-200", false, true, "kim");
+            h.NotePickup(1, "FOUP A"); t = t.AddSeconds(9);
+            h.NoteDropoff(1, "A"); t = t.AddSeconds(4);
+            h.NoteProcessStart(1, "A", 60); t = t.AddSeconds(60.2);
+            h.NoteProcessEnd(1, "A"); t = t.AddSeconds(5);
+            h.NotePickup(1, "A"); t = t.AddSeconds(9);
+            h.NoteDropoff(1, "B"); t = t.AddSeconds(4);
+            h.NoteProcessStart(1, "B", 120); t = t.AddSeconds(2);
+            h.NotePickup(2, "FOUP A"); t = t.AddSeconds(9);
+            h.NoteDropoff(2, "A"); t = t.AddSeconds(4);
+            h.NoteProcessStart(2, "A", 60);
+            return h;
+        }
+
         private static void SeedChangeHistory()
         {
             string folder = Path.Combine(Path.GetTempPath(), "SnapshotTool_changes_" + Guid.NewGuid().ToString("N"));
@@ -527,6 +588,7 @@ namespace SnapshotTool
         public void ShowIoMonitor(IoMonitorViewModel model) { }
         public void ShowMaintenanceCounters(MaintenanceCounterViewModel model) { }
         public void ShowAlarmHistory(AlarmHistoryViewModel model) { }
+        public void ShowWaferHistory(WaferHistoryViewModel model) { }
     }
 
     /// <summary>I/O 모니터 스냅샷용: 공정 대기 중 모습 (녹색 램프, 도어 닫힘, 실린더 후진, 진공 ON)</summary>

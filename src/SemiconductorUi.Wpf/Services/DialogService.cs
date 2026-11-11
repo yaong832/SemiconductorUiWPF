@@ -167,6 +167,32 @@ namespace SemiconductorUi.Wpf.Services
             _alarmHistory.Activate();
         }
 
+        private WaferHistoryWindow _waferHistory;
+
+        public void ShowWaferHistory(WaferHistoryViewModel model)
+        {
+            var main = Application.Current?.MainWindow;
+            if (_waferHistory == null)
+            {
+                _waferHistory = new WaferHistoryWindow(model);
+                if (main != null && main.IsLoaded)
+                {
+                    _waferHistory.Owner = main;
+                    main.Closing += (s, e) => _waferHistory?.ForceClose();
+                }
+                else
+                {
+                    _waferHistory.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+                }
+            }
+
+            // 이미 떠 있으면 새로 읽는다 (원본 RefreshRows)
+            if (!_waferHistory.IsVisible) _waferHistory.Show();
+            else model.Refresh();
+            if (_waferHistory.WindowState == WindowState.Minimized) _waferHistory.WindowState = WindowState.Normal;
+            _waferHistory.Activate();
+        }
+
         private UnitDetailWindow _unitDetail;
 
         public void ShowUnitDetail(UnitDetailViewModel detail)

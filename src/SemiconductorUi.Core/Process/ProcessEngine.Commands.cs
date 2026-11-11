@@ -294,6 +294,7 @@ namespace SemiconductorUi.Process
             UpdateTmAnimationIdleTarget();
             UpdateServoStatusLabel();
             AddLogMessage("사용자가 공정을 수동 리셋했습니다.", "INFO");
+            RecordWaferLotAborted("공정 리셋");
 
             // 하드웨어 초기화(대기 포함)는 백그라운드에서 수행
             if (EthercatConnected && EtherCAT_M != null)
@@ -593,6 +594,8 @@ namespace SemiconductorUi.Process
                         SetProcessState(MainFormViewModel.ProcessState.Idle, "시뮬레이션이 완료되었습니다.");
                     }
 
+                    // 원본은 이 완료 경로에서 웨이퍼 이력 작업을 닫지 않아 다음 공정 시작 때 닫혔다 (WPF 수정)
+                    RecordWaferLotFinished();
                     UpdateSimulationUi();
                 }
             }

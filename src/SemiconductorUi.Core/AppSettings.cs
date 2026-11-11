@@ -44,6 +44,11 @@ namespace SemiconductorUi
         /// </summary>
         public static string ChangeHistoryFolder => GetSetting("ChangeHistoryFolder", "");
 
+        /// <summary>
+        /// 웨이퍼별 공정 이력 폴더 (Wafer_yyyyMMdd.csv, 지우지 않음). 비우면 문서\SemiconductorUi_Logs\Wafers
+        /// </summary>
+        public static string WaferHistoryFolder => GetSetting("WaferHistoryFolder", "");
+
         #endregion
 
         #region UI 설정
