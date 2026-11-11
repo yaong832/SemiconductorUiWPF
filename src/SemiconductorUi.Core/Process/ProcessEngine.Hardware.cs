@@ -781,8 +781,12 @@ namespace SemiconductorUi.Process
                     return true;
                 }
 
-                // PP_D가 늦게 켜지는 경우: 목표 위치 허용 오차 안에 일정 시간 머물면 완료
-                if (TmHardwareActionPending && IsTmHeldAtCommandedTarget(includeAxis2: true))
+                // PP_D가 늦게 켜지는 경우: 목표 위치 허용 오차 안에 일정 시간 머물면 완료.
+                // 단, 회전(Axis2)은 PP_D가 켜져야 합니다. 다음 단계의 실린더 전진은 장비 인터락
+                // (TmMotionInterlock: 회전 PP_D 또는 HOME_D 확인)에 막히므로, 회전 PP_D 전에 넘어가면
+                // FOUP 앞(도어 대기 없음)에서 가끔 "TM 실린더 전진 오류"로 멈춥니다 (원본 a55181f, 2026-11-11 장비).
+                // 위치 기준 완료는 Z(Axis1)의 느린 복귀만 건너뛰는 용도입니다.
+                if (TmHardwareActionPending && axis2Done && IsTmHeldAtCommandedTarget(includeAxis2: true))
                 {
                     return true;
                 }
