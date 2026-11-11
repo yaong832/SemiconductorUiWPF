@@ -396,6 +396,19 @@ namespace SemiconductorUi
 
         #endregion
 
+        #region EtherCAT 통신 감시 (원본 684c244, 1단계: 기록만)
+
+        /// <summary>EtherCAT 통신 감시 주기 (ms). 0이면 감시하지 않는다. 1단계: 기록만 한다.</summary>
+        public static int EthercatWatchdogIntervalMs => GetSetting("EthercatWatchdogIntervalMs", 1000);
+
+        /// <summary>이상이 연속 몇 번 나오면 "통신 이상"으로 기록할지</summary>
+        public static int EthercatWatchdogFailCount => GetSetting("EthercatWatchdogFailCount", 2);
+
+        /// <summary>통신 감시 요약을 몇 분마다 로그에 남길지 (0 = 남기지 않음)</summary>
+        public static int EthercatWatchdogSummaryMinutes => GetSetting("EthercatWatchdogSummaryMinutes", 10);
+
+        #endregion
+
         #region 알람 임계값 기본 설정
 
         /// <summary>
