@@ -93,7 +93,13 @@ namespace SemiconductorUi.Wpf.ViewModels
             Report = new ReportViewModel(Logs, dialogs,
                 (rows, tag) => LogCsvExporter.Save(rows, tag, DateTime.Now),
                 OpenFolderOf);
-            ChangeHistoryView = new ChangeHistoryViewModel(OpenExplorerFolder);
+            ChangeHistoryView = new ChangeHistoryViewModel(OpenFolder);
+            Maintenance = new MaintenanceViewModel(
+                new IoMonitorViewModel(() => Ethercat, () => IsEthercatConnected),
+                new MaintenanceCounterViewModel(() => MaintenanceCounters, () => State.IsLoggedIn, () => State.CurrentUser,
+                    () => IsAdmin, OpenFolder),
+                OpenIoMonitorWindow,
+                OpenMaintenanceCounterWindow);
 
             _clockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _clockTimer.Tick += (s, e) => Now = DateTime.Now;
@@ -184,9 +190,72 @@ namespace SemiconductorUi.Wpf.ViewModels
             }
         }
 
+        /// <summary>유지보수 화면 (원본 MaintenanceForm, I/O 모니터 포함)</summary>
+        public MaintenanceViewModel Maintenance { get; }
+
+        /// <summary>유지보수 카운터. 장비 창구가 없거나 시작하지 못했으면 null (원본 Form1.MaintenanceCounters)</summary>
+        public MaintenanceCounterService MaintenanceCounters { get; private set; }
+
+        /// <summary>
+        /// 유지보수 카운터를 시작한다 (원본 Form1.StartMaintenanceCounters, 메인 창이 뜬 뒤).
+        /// 실제 장비 창구(Ieg3268Device)가 보낸 명령 횟수만 세므로 usage가 없으면 시작하지 않는다.
+        /// </summary>
+        public void StartMaintenanceCounters(HardwareUsageCounters usage, string folder = null)
+        {
+            if (MaintenanceCounters != null || usage == null) return;
+            try
+            {
+                var service = folder == null
+                    ? MaintenanceCounterService.CreateFromSettings(usage, AddLog)
+                    : new MaintenanceCounterService(folder, usage, AddLog);
+                service.Start();
+                MaintenanceCounters = service;
+                Maintenance.Counters.RefreshAll();
+            }
+            catch (Exception ex)
+            {
+                MaintenanceCounters = null;
+                AddLog($"유지보수 카운터를 시작하지 못했습니다: {ex.Message}", "WARN");
+            }
+        }
+
+        /// <summary>멈추고 마지막 10초 안에 센 값까지 저장한다 (프로그램 종료 때)</summary>
+        public void DisposeMaintenanceCounters()
+        {
+            var service = MaintenanceCounters;
+            MaintenanceCounters = null;
+            service?.Dispose();
+        }
+
+        private void OpenMaintenanceCounterWindow()
+        {
+            try
+            {
+                _dialogs.ShowMaintenanceCounters(Maintenance.Counters);
+            }
+            catch (Exception ex)
+            {
+                AddLog($"유지보수 카운터 창 오류: {ex.Message}", "WARN");
+            }
+        }
+
         /// <summary>파일 탐색기로 폴더를 연다.</summary>
-        private static void OpenExplorerFolder(string folder) =>
+        private static void OpenFolder(string folder) =>
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true });
+
+        /// <summary>I/O 모니터 별도 창 (원본 Form1.ShowIoMonitorWindow)</summary>
+        private void OpenIoMonitorWindow()
+        {
+            try
+            {
+                _dialogs.ShowIoMonitor(Maintenance.Io);
+                AddLog("I/O 모니터 열기 (읽기 전용)", "INFO");
+            }
+            catch (Exception ex)
+            {
+                AddLog($"I/O 모니터 오류: {ex.Message}", "WARN");
+            }
+        }
 
         /// <summary>파일 탐색기에서 파일이 있는 폴더를 열고 그 파일을 고른다.</summary>
         private void OpenFolderOf(string filePath)
@@ -229,17 +298,22 @@ namespace SemiconductorUi.Wpf.ViewModels
                     else OpenModal();
                     return;
                 }
+                var previous = _currentPage;
                 if (SetProperty(ref _currentPage, value))
                 {
                     OnPropertyChanged(nameof(IsOperatePage));
                     OnPropertyChanged(nameof(IsTrendPage));
                     OnPropertyChanged(nameof(IsReportPage));
+                    OnPropertyChanged(nameof(IsMaintenancePage));
                     OnPropertyChanged(nameof(IsPlaceholderPage));
                     OnPropertyChanged(nameof(CurrentPageTitle));
                     OnPropertyChanged(nameof(ViewTitle));
                     // 원본 NavigateToSection(Trend): 들어갈 때 수집 시작
                     if (value == NavPage.Trend) Trend.OnShown();
                     if (value == NavPage.Report && IsChangeHistoryTab) ChangeHistoryView.Refresh();
+                    // I/O 모니터는 보이는 동안만 읽는다
+                    if (previous == NavPage.Maintenance) Maintenance.OnHidden();
+                    if (value == NavPage.Maintenance) Maintenance.OnShown();
                 }
             }
         }
@@ -250,8 +324,10 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         public bool IsReportPage => CurrentPage == NavPage.Report;
 
+        public bool IsMaintenancePage => CurrentPage == NavPage.Maintenance;
+
         /// <summary>아직 이관하지 않은 메뉴</summary>
-        public bool IsPlaceholderPage => !IsOperatePage && !IsTrendPage && !IsReportPage;
+        public bool IsPlaceholderPage => !IsOperatePage && !IsTrendPage && !IsReportPage && !IsMaintenancePage;
 
         public string CurrentPageTitle
         {

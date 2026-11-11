@@ -52,6 +52,11 @@ namespace SemiconductorUi.Hardware
         // 현재 동작(BeginOperation)이 시작될 때의 비상정지 횟수. 동작 범위 밖이면 null.
         private readonly AsyncLocal<long?> _operationStartStopCount = new AsyncLocal<long?>();
 
+        /// <summary>
+        /// 유지보수 카운터용 명령 횟수. 명령이 나간 뒤 숫자만 올리며, 명령 자체는 바꾸지 않습니다.
+        /// </summary>
+        public HardwareUsageCounters Usage { get; } = new HardwareUsageCounters();
+
         public Ieg3268Device(IEG3268 dll)
             : this(dll, new CifxNativeChannel())
         {
@@ -153,7 +158,31 @@ namespace SemiconductorUi.Hardware
 
                 _interlock.CheckCylinderOutputAllowed(numbering, value, IsRotationAtTarget);
                 _interlock.NoteCylinderOutput(numbering, value);
+                bool previous = ReadLastOutputForCount(numbering);
                 _dll.Digital_Output(numbering, value);
+                Usage.NoteOutput(numbering, previous, value);
+            }
+        }
+
+        /// <summary>
+        /// 유지보수 카운터용: 보내기 전의 출력 값. 락 안에서 부릅니다.
+        /// 읽을 수 없으면 켜져 있던 것으로 보고 세지 않습니다 (출력 명령은 그대로 나갑니다).
+        /// </summary>
+        private bool ReadLastOutputForCount(int numbering)
+        {
+            try
+            {
+                bool[] outputs = _dll.Digital_Out_Value;
+                if (outputs == null || numbering < 0 || numbering >= outputs.Length)
+                {
+                    return true;
+                }
+
+                return outputs[numbering];
+            }
+            catch
+            {
+                return true;
             }
         }
 
@@ -232,6 +261,7 @@ namespace SemiconductorUi.Hardware
             {
                 ThrowIfEmergencyStopped();
                 _dll.Axis1_UD_Move_Send();
+                Usage.NoteAxisCommand(1);
             }
         }
 
@@ -241,6 +271,7 @@ namespace SemiconductorUi.Hardware
             {
                 ThrowIfEmergencyStopped();
                 _dll.Axis1_UD_Homming();
+                Usage.NoteAxisCommand(1);
             }
         }
 
@@ -311,6 +342,7 @@ namespace SemiconductorUi.Hardware
                 _dll.Axis2_LR_Move_Send();
                 // DLL 호출 안에 0.3초 대기가 있으므로 완료 대기 시간은 호출이 끝난 뒤부터 셉니다.
                 _interlock.NoteRotationCommand();
+                Usage.NoteAxisCommand(2);
             }
         }
 
@@ -324,6 +356,7 @@ namespace SemiconductorUi.Hardware
                 _interlock.NoteRotationCommand();
                 _dll.Axis2_LR_Homming();
                 _interlock.NoteRotationCommand();
+                Usage.NoteAxisCommand(2);
             }
         }
 

@@ -36,6 +36,15 @@ namespace SemiconductorUi.Wpf.Services
         void ShowTeachingPositions(ViewModels.TeachingPositionViewModel model);
 
         /// <summary>
+        /// I/O 모니터 별도 창 (원본 ShowIoMonitorWindow). 모달이 아니며 창 하나를 다시 쓴다.
+        /// 이미 떠 있으면 앞으로 가져온다.
+        /// </summary>
+        void ShowIoMonitor(ViewModels.IoMonitorViewModel model);
+
+        /// <summary>유지보수 카운터 별도 창 (원본 ShowMaintenanceCounterWindow). 모달이 아니며 창 하나를 다시 쓴다.</summary>
+        void ShowMaintenanceCounters(ViewModels.MaintenanceCounterViewModel model);
+
+        /// <summary>
         /// 현재 알람과 알람 이력 창 (원본 ShowAlarmHistoryWindow). 모달이 아닌 창 하나를 다시 쓰며,
         /// model.IsOpen이 false가 되면 숨긴다. 이미 떠 있으면 앞으로 가져온다.
         /// </summary>

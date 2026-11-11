@@ -1,0 +1,54 @@
+<UserControl x:Class="SemiconductorUi.Wpf.Views.MaintenanceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:SemiconductorUi.Wpf.Views"
+             xmlns:vm="clr-namespace:SemiconductorUi.Wpf.ViewModels"
+             xmlns:infra="clr-namespace:SemiconductorUi.Wpf.Infrastructure"
+             FontFamily="{StaticResource UiFont}" FontSize="13" Foreground="{StaticResource TextPrimary}">
+    <!-- 원본 Forms.MaintenanceForm. I/O 모니터와 유지보수 카운터를 탭으로 바로 보여 준다 -->
+    <UserControl.Resources>
+        <infra:EnumEqualsConverter x:Key="EnumEquals"/>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="36"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+            <RadioButton Style="{StaticResource SubTab}" Content="I/O 모니터"
+                         IsChecked="{Binding CurrentTab, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:MaintenanceTab.IoMonitor}}"/>
+            <RadioButton Style="{StaticResource SubTab}"
+                         IsChecked="{Binding CurrentTab, Converter={StaticResource EnumEquals}, ConverterParameter={x:Static vm:MaintenanceTab.Counters}}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="유지보수 카운터" VerticalAlignment="Center"/>
+                    <!-- 점검 주기에 도달한 항목 수 (WPF 추가) -->
+                    <Border Background="{StaticResource Danger}" CornerRadius="9" MinWidth="18" Height="18" Padding="5,0" Margin="6,0,0,0"
+                            VerticalAlignment="Center" ToolTip="점검 주기에 도달한 항목"
+                            Visibility="{Binding Counters.HasDue, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{Binding Counters.DueCount}" Foreground="White" FontSize="11" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </StackPanel>
+            </RadioButton>
+        </StackPanel>
+
+        <Border Grid.Row="1" Background="{StaticResource Surface}" CornerRadius="0,6,6,6" Padding="16,12,16,16">
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                    <Button DockPanel.Dock="Right" Content="별도 창으로 열기" Style="{StaticResource SecondaryButton}"
+                            Height="32" MinWidth="130" FontWeight="SemiBold" Command="{Binding OpenWindowCommand}"
+                            ToolTip="다른 화면으로 옮겨도 계속 볼 수 있게 따로 띄웁니다"/>
+                    <TextBlock Text="{Binding TabDescription}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
+                </DockPanel>
+                <Grid>
+                    <Grid Visibility="{Binding IsIoTab, Converter={StaticResource BoolToVisibility}}">
+                        <views:IoMonitorView DataContext="{Binding Io}"/>
+                    </Grid>
+                    <Grid Visibility="{Binding IsCountersTab, Converter={StaticResource BoolToVisibility}}">
+                        <views:MaintenanceCounterView DataContext="{Binding Counters}"/>
+                    </Grid>
+                </Grid>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

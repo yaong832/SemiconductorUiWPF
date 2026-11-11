@@ -73,6 +73,11 @@ namespace SemiconductorUi
         /// </summary>
         public static int MaxFoupCapacity => GetSetting("MaxFoupCapacity", 5);
 
+        /// <summary>
+        /// 유지보수 카운터 폴더 (MaintenanceCounters.xml, MaintenanceHistory.csv). 비우면 문서\SemiconductorUi_Logs\Maintenance
+        /// </summary>
+        public static string MaintenanceFolder => GetSetting("MaintenanceFolder", "");
+
         #endregion
 
         #region UI 색상 설정

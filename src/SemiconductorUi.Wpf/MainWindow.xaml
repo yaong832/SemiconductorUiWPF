@@ -194,6 +194,9 @@
                     </Grid>
                 </Grid>
             </Grid>
+            <Grid Margin="0,10,0,0" Visibility="{Binding IsMaintenancePage, Converter={StaticResource BoolToVisibility}}">
+                <views:MaintenanceView DataContext="{Binding Maintenance}"/>
+            </Grid>
             <views:PlaceholderView Margin="0,10,0,0" Title="{Binding CurrentPageTitle}"
                                    Visibility="{Binding IsPlaceholderPage, Converter={StaticResource BoolToVisibility}}"/>
         </Grid>
