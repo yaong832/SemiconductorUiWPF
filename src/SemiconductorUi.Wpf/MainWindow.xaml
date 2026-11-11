@@ -159,8 +159,10 @@
                 </StackPanel>
                 <Border Grid.Row="1" Background="{StaticResource Surface}" CornerRadius="0,6,6,6">
                     <Grid>
-                        <views:MonitoringView DataContext="{Binding Monitoring}"
-                                              Visibility="{Binding DataContext.CurrentTab, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Monitoring}}"/>
+                        <!-- 감싼 Grid가 탭을 고른다 (창 밖에서 그리는 스냅샷에서도 같은 바인딩이 되도록) -->
+                        <Grid Visibility="{Binding CurrentTab, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Monitoring}}">
+                            <views:MonitoringView DataContext="{Binding Monitoring}"/>
+                        </Grid>
                         <Grid Visibility="{Binding CurrentTab, Converter={StaticResource EnumVisible}, ConverterParameter={x:Static vm:OperateTab.Verification}}">
                             <views:VerificationView DataContext="{Binding VerificationTab}"/>
                         </Grid>
