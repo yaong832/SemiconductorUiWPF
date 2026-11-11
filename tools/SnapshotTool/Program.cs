@@ -119,7 +119,7 @@ namespace SnapshotTool
 
         private static MainViewModel CreateMain(int simulationTicks, Action<MainViewModel> beforeTicks = null)
         {
-            var vm = new MainViewModel(new AutoDialogs(), new SemiconductorUi.Repositories.UserRepositoryImpl(Path.GetTempFileName()), new OfflineDevice());
+            var vm = new MainViewModel(new AutoDialogs(), new SemiconductorUi.Repositories.UserRepositoryImpl(Path.GetTempFileName()), new OfflineDevice(), new SemiconductorUi.Services.LoggerService(null));
             if (simulationTicks > 0)
             {
                 vm.State.IsLoggedIn = true;
