@@ -125,28 +125,28 @@
                 <TextBlock Text="서보 상태 (드라이브 상태워드)" Style="{StaticResource PanelTitle}"/>
                 <Grid Margin="10,0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="110"/>
-                        <ColumnDefinition Width="84"/>
-                        <ColumnDefinition Width="210"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="104"/>
+                        <ColumnDefinition Width="78"/>
+                        <ColumnDefinition Width="200"/>
+                        <ColumnDefinition Width="*" MinWidth="340"/>
+                        <ColumnDefinition Width="100"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="축" Foreground="{StaticResource TextSecondary}"/>
                     <TextBlock Grid.Column="1" Text="상태워드" Foreground="{StaticResource TextSecondary}"/>
                     <TextBlock Grid.Column="2" Text="상태" Foreground="{StaticResource TextSecondary}"/>
                     <TextBlock Grid.Column="3" Text="주요 비트" Foreground="{StaticResource TextSecondary}"/>
-                    <TextBlock Grid.Column="4" Text="엔코더 위치" Foreground="{StaticResource TextSecondary}"/>
+                    <TextBlock Grid.Column="4" Text="엔코더 위치" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Right"/>
                 </Grid>
                 <ItemsControl ItemsSource="{Binding Axes}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:ServoAxisRow}">
                             <Grid Margin="10,6,10,0" Height="24">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="110"/>
-                                    <ColumnDefinition Width="84"/>
-                                    <ColumnDefinition Width="210"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="104"/>
+                                    <ColumnDefinition Width="78"/>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*" MinWidth="340"/>
+                                    <ColumnDefinition Width="100"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                 <TextBlock Grid.Column="1" Text="{Binding StatusWordText}" FontFamily="Consolas" VerticalAlignment="Center"/>
@@ -159,7 +159,7 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:ServoBitItem}">
-                                            <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,10,0">
                                                 <Ellipse x:Name="dot" Width="10" Height="10" Fill="{StaticResource DotOff}" Margin="0,0,4,0" VerticalAlignment="Center"/>
                                                 <TextBlock x:Name="label" Text="{Binding Name}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/>
                                             </StackPanel>
@@ -179,7 +179,7 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <TextBlock Grid.Column="4" Text="{Binding Position}" FontFamily="Consolas" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="4" Text="{Binding Position}" FontFamily="Consolas" VerticalAlignment="Center" HorizontalAlignment="Right"/>
                             </Grid>
                             <DataTemplate.Triggers>
                                 <DataTrigger Binding="{Binding IsFault}" Value="True">
