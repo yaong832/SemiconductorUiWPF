@@ -61,7 +61,7 @@ namespace SemiconductorUi.Tests
             var chamber = RunUntilChamberCompleted();
             Assert.IsNotNull(chamber, "공정이 끝나 픽업을 기다리는 챔버가 있어야 합니다");
 
-            long phase = 10L * System.Math.Max(1, AppSettings.HardwareModeTickMilliseconds);
+            long phase = ProcessEngine.ChamberLampBlinkHalfPeriodMs;
             Assert.IsFalse(_engine.IsChamberLampOn(chamber.Region), "점멸은 꺼짐으로 시작합니다");
 
             _now += phase / 2;
@@ -95,7 +95,7 @@ namespace SemiconductorUi.Tests
             Assert.IsTrue(detail.Chips.Any(c => c.Key == "램프 켜짐" && c.Value));
             Assert.AreEqual(6, detail.Env.Length);
             Assert.IsTrue(detail.Progress > 0);
-            StringAssert.Contains(detail.ProgressText, "공정 진행 중 (#1)");
+            StringAssert.Contains(detail.ProgressText, "#1 공정 진행 중");
         }
 
         [TestMethod]

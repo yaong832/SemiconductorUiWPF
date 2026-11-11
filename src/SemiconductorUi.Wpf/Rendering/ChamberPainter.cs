@@ -24,6 +24,7 @@ namespace SemiconductorUi.Wpf.Rendering
         private static readonly Color GlassDark = Rgb(26, 35, 50);
         private static readonly Color PlateFill = Rgb(42, 50, 64);
         private static readonly Color PlateText = Rgb(233, 237, 243);
+        private static readonly Color PlateSubText = Rgb(196, 206, 220);
         private static readonly Color ValveBody = Rgb(140, 151, 166);
         private static readonly Color ValveOpenGlow = Rgb(59, 209, 126);
         private const int ChamberLidBolts = 12;
@@ -79,14 +80,44 @@ namespace SemiconductorUi.Wpf.Rendering
             }
         }
 
+        /// <summary>
+        /// 장비 이름판 (원본 a08aff0): 윗줄은 PM 이름(PMA), 아랫줄은 챔버 이름(Chamber A).
+        /// 제목이 "Chamber X"가 아니면 한 줄로 그린다.
+        /// </summary>
         private static void DrawNameplate(Gdi g, Rect card, string title)
         {
             title = title ?? string.Empty;
             double maxWidth = card.Width - 52;
-            var textSize = g.MeasureText(title, 9, true);
-            var plate = new Rect(card.Left + 8, card.Top + 5, Math.Min(maxWidth, textSize.Width) + 16, Palette.HeaderHeight - 9);
+            string pmName = GetPmName(title);
+            if (pmName == null)
+            {
+                var textSize = g.MeasureText(title, 9, true);
+                var single = new Rect(card.Left + 8, card.Top + 5, Math.Min(maxWidth, textSize.Width) + 16, Palette.HeaderHeight - 9);
+                g.FillPath(Brush(PlateFill), RoundedRect(single, 4));
+                g.DrawText(title, 9, true, Inflate(single, -8, 0), PlateText, TextAlignment.Left, VAlign.Center, ellipsis: true);
+                return;
+            }
+
+            double plateHeight = Palette.HeaderHeight - 5;
+            double pmLine = Math.Round(plateHeight * 0.56);
+            var pmSize = g.MeasureText(pmName, 8.5, true);
+            var chamberSize = g.MeasureText(title, 6.5, false);
+            double textWidth = Math.Min(maxWidth, Math.Max(pmSize.Width, chamberSize.Width));
+            var plate = new Rect(card.Left + 8, card.Top + 3, textWidth + 14, plateHeight);
             g.FillPath(Brush(PlateFill), RoundedRect(plate, 4));
-            g.DrawText(title, 9, true, Inflate(plate, -8, 0), PlateText, TextAlignment.Left, VAlign.Center, ellipsis: true);
+            var pmRect = new Rect(plate.X + 7, plate.Y + 1, plate.Width - 14, pmLine);
+            var chamberRect = new Rect(plate.X + 7, pmRect.Bottom - 1, plate.Width - 14, Math.Max(1, plate.Bottom - pmRect.Bottom));
+            g.DrawText(pmName, 8.5, true, pmRect, PlateText, TextAlignment.Left, VAlign.Center, ellipsis: true);
+            g.DrawText(title, 6.5, false, chamberRect, PlateSubText, TextAlignment.Left, VAlign.Center, ellipsis: true);
+        }
+
+        /// <summary>"Chamber A" → "PMA". 화면 글자만 바꾸고 내부 키는 그대로 쓴다.</summary>
+        internal static string GetPmName(string chamberTitle)
+        {
+            const string prefix = "Chamber ";
+            if (chamberTitle != null && chamberTitle.Length == prefix.Length + 1 && chamberTitle.StartsWith(prefix, StringComparison.Ordinal))
+                return "PM" + chamberTitle.Substring(prefix.Length);
+            return null;
         }
 
         private static void DrawChamberLid(Gdi g, Rect well)

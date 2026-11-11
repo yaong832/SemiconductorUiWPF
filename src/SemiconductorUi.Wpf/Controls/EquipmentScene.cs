@@ -44,6 +44,10 @@ namespace SemiconductorUi.Wpf.Controls
         public bool TmCarrying { get; set; }
         public double TmExtension { get; set; } = 0.55;
         public bool IsSimulation { get; set; } = true;
+        /// <summary>하드웨어 모드의 회전축(Axis2) 엔코더 값. 있으면 TM 각도를 이 값으로 그린다.</summary>
+        public long? TmEncoderX { get; set; }
+        /// <summary>엔코더 값을 각도로 바꿀 때 쓰는 모듈별 티칭 X값</summary>
+        public IList<KeyValuePair<EquipmentRegion, long>> TmTeachX { get; set; }
         public Color TmWaferColor { get; set; } = Palette.DefaultWafer;
 
         public TmSideViewState SideView { get; set; } = new TmSideViewState();

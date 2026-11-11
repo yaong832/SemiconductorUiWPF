@@ -27,6 +27,32 @@ namespace SemiconductorUi.Helpers
                 || statusText.Contains(SecondExposure);
         }
 
+        /// <summary>
+        /// 챔버 상태를 화면에 보일 한국어 문구로 바꿉니다. 내부 비교에 쓰는 StatusText 값은 그대로 둡니다.
+        /// </summary>
+        public static string ToDisplay(string statusText)
+        {
+            if (string.IsNullOrWhiteSpace(statusText))
+            {
+                return string.Empty;
+            }
+
+            switch (statusText)
+            {
+                case Idle: return "대기";
+                case Processing: return "공정 중";
+                case SecondExposure: return "2차 노광 중";
+                case DoorClosing: return "도어 닫는 중";
+                case DoorOpenWaiting: return "도어 열림 대기";
+                case TmWaiting: return "TM 대기";
+                case Completed: return "공정 완료";
+                case "Transfer Ready": return "반출 준비";
+                case "Transfer Waiting": return "반출 대기";
+                case "Transfer 대기": return "반출 대기";
+                default: return statusText;
+            }
+        }
+
         /// <summary>도어 닫힘 후 공정 시작을 기다려야 하는 상태</summary>
         public static bool IsAwaitingProcessStart(string statusText)
         {

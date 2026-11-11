@@ -25,6 +25,7 @@ namespace SemiconductorUi.Process
         internal bool doorOpenCommandSent = false;               // 도어 열기 명령 전송 여부
         internal bool doorCloseCommandSent = false;              // 도어 닫기 명령 전송 여부
         internal int doorCloseWaitTicks = 0;                     // 도어 닫기 대기 틱 수
+        internal DateTime doorWaitStartTime = DateTime.MinValue;   // 도어 열기/닫기 명령을 보낸 시각 (시간 기준 대기)
         // TM_HARDWARE_ACTION_TIMEOUT_MS, CYLINDER_ACTION_TIMEOUT_MS는 AppSettings에서 읽어옴
         // TmHardwareInitialized는 HardwareManager 속성으로 관리됨
         internal bool IsServoOn = false;                         // 서보 ON 상태 추적
@@ -698,6 +699,56 @@ namespace SemiconductorUi.Process
         {
             TmHardwareActionPending = true;
             tmHardwareActionStartTime = DateTime.Now;
+            _tmInPositionSince = null;
+        }
+
+        // 위치 기반 완료 판정: 허용 오차 안에 처음 들어온 시각 (벗어나면 null)
+        private DateTime? _tmInPositionSince;
+
+        /// <summary>
+        /// 공정 루프 이동 완료 보조 판정: 현재 위치가 마지막 명령 목표의 허용 오차 안에
+        /// ServoInPositionHoldMs 이상 연속으로 머물렀는지 확인.
+        /// 실제 장비 로그(2026-11-10)에서 이동은 1초 안팎에 끝나지만 Z가 목표를 수백 펄스 지나친 뒤
+        /// 천천히 되돌아와 PP_D가 7~9.5초 뒤에 켜지는 문제가 있어 추가함 (원본 bcd72ee).
+        /// TmHardwareController.WaitForServoMoveComplete(수동/티칭 경로)도 ±1000 펄스로 완료 판정함.
+        /// </summary>
+        private bool IsTmHeldAtCommandedTarget(bool includeAxis2)
+        {
+            var ctrl = TmHardwareController;
+            if (ctrl == null || ctrl.CommandedAxis1Target == null) return false;
+            if (includeAxis2 && ctrl.CommandedAxis2Target == null) return false;
+
+            int tolAxis1 = AppSettings.ServoInPositionToleranceAxis1;
+            int tolAxis2 = AppSettings.ServoInPositionToleranceAxis2;
+            if (tolAxis1 <= 0 || (includeAxis2 && tolAxis2 <= 0)) return false;
+
+            ctrl.UpdateCurrentPositions();
+            long diffAxis1 = Math.Abs(ctrl.CurrentAxis1Position - ctrl.CommandedAxis1Target.Value);
+            long diffAxis2 = includeAxis2 ? Math.Abs(ctrl.CurrentAxis2Position - ctrl.CommandedAxis2Target.Value) : 0;
+
+            if (diffAxis1 > tolAxis1 || diffAxis2 > tolAxis2)
+            {
+                _tmInPositionSince = null;
+                return false;
+            }
+
+            var now = DateTime.Now;
+            if (_tmInPositionSince == null)
+            {
+                _tmInPositionSince = now;
+                return false;
+            }
+            if ((now - _tmInPositionSince.Value).TotalMilliseconds < AppSettings.ServoInPositionHoldMs)
+            {
+                return false;
+            }
+
+            double elapsedMs = (now - tmHardwareActionStartTime).TotalMilliseconds;
+            AddLogMessage(includeAxis2
+                ? $"서보 위치 도달 (허용범위, PP_D 전, {elapsedMs:F0}ms): X={ctrl.CurrentAxis2Position} (목표 {ctrl.CommandedAxis2Target}, 차 {diffAxis2}), Y={ctrl.CurrentAxis1Position} (목표 {ctrl.CommandedAxis1Target}, 차 {diffAxis1})"
+                : $"서보 Axis1 위치 도달 (허용범위, PP_D 전, {elapsedMs:F0}ms): Y={ctrl.CurrentAxis1Position} (목표 {ctrl.CommandedAxis1Target}, 차 {diffAxis1})",
+                "INFO");
+            return true;
         }
 
         internal bool CheckTmHardwareActionComplete()
@@ -725,6 +776,12 @@ namespace SemiconductorUi.Process
                 
                 // PP_D가 둘 다 true면 완료 (최소 대기 시간 이후에만 체크)
                 if (axis1Done && axis2Done)
+                {
+                    return true;
+                }
+
+                // PP_D가 늦게 켜지는 경우: 목표 위치 허용 오차 안에 일정 시간 머물면 완료
+                if (TmHardwareActionPending && IsTmHeldAtCommandedTarget(includeAxis2: true))
                 {
                     return true;
                 }
@@ -1207,6 +1264,12 @@ namespace SemiconductorUi.Process
                 
                 // PP_D가 true면 완료 (최소 대기 시간 이후에만 체크)
                 if (EtherCAT_M.Axis1_Status("PP_D"))
+                {
+                    return true;
+                }
+
+                // PP_D가 늦게 켜지는 경우: 목표 위치 허용 오차 안에 일정 시간 머물면 완료
+                if (TmHardwareActionPending && IsTmHeldAtCommandedTarget(includeAxis2: false))
                 {
                     return true;
                 }
