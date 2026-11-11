@@ -14,42 +14,40 @@
             <Setter Property="Margin" Value="6,0,0,0"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
-        <Style x:Key="GridHeader" TargetType="DataGridColumnHeader">
+        <Style x:Key="ListHeader" TargetType="GridViewColumnHeader">
             <Setter Property="Background" Value="{StaticResource SurfaceAlt}"/>
             <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
             <Setter Property="Padding" Value="8,6"/>
             <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
-        </Style>
-        <Style x:Key="GridCell" TargetType="DataGridCell">
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="8,0"/>
             <Setter Property="Template">
                 <Setter.Value>
-                    <ControlTemplate TargetType="DataGridCell">
-                        <Border Padding="{TemplateBinding Padding}" Background="Transparent">
-                            <ContentPresenter VerticalAlignment="Center"/>
+                    <ControlTemplate TargetType="GridViewColumnHeader">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"/>
                         </Border>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
-        <Style x:Key="ListGrid" TargetType="DataGrid">
-            <Setter Property="AutoGenerateColumns" Value="False"/>
-            <Setter Property="IsReadOnly" Value="True"/>
-            <Setter Property="HeadersVisibility" Value="Column"/>
-            <Setter Property="GridLinesVisibility" Value="Horizontal"/>
-            <Setter Property="HorizontalGridLinesBrush" Value="#E4E8EE"/>
+        <!-- 원본처럼 ListView(자세히 보기). 열 너비가 고정이라 창이 처음 뜰 때도 바로 자리 잡는다 -->
+        <Style x:Key="AlarmList" TargetType="ListView">
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="{StaticResource Surface}"/>
-            <Setter Property="RowBackground" Value="{StaticResource Surface}"/>
-            <Setter Property="CanUserResizeRows" Value="False"/>
-            <Setter Property="SelectionMode" Value="Single"/>
-            <Setter Property="RowHeight" Value="28"/>
             <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="ColumnHeaderStyle" Value="{StaticResource GridHeader}"/>
-            <Setter Property="CellStyle" Value="{StaticResource GridCell}"/>
+            <Setter Property="SelectionMode" Value="Single"/>
+            <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True"/>
+        </Style>
+        <Style x:Key="AlarmRow" TargetType="ListViewItem">
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="Padding" Value="2,0"/>
+            <Setter Property="BorderBrush" Value="#E4E8EE"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
     </Window.Resources>
 
@@ -91,16 +89,21 @@
         </StackPanel>
         <Border Grid.Row="1" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="4" MaxHeight="190">
             <Grid>
-                <DataGrid x:Name="ActiveGrid" Style="{StaticResource ListGrid}" ItemsSource="{Binding Active}" Foreground="{StaticResource Danger}">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="코드" Binding="{Binding Code}" Width="64"/>
-                        <DataGridTextColumn Header="유닛" Binding="{Binding Unit}" Width="90"/>
-                        <DataGridTextColumn Header="알람" Binding="{Binding Name}" Width="220"/>
-                        <DataGridTextColumn Header="상세" Binding="{Binding Detail}" Width="*"/>
-                        <DataGridTextColumn Header="발생 시각" Binding="{Binding SetTimeText}" Width="110"/>
-                        <DataGridTextColumn Header="경과" Binding="{Binding Elapsed}" Width="100"/>
-                    </DataGrid.Columns>
-                </DataGrid>
+                <ListView Style="{StaticResource AlarmList}" ItemsSource="{Binding Active}" Foreground="{StaticResource Danger}">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem" BasedOn="{StaticResource AlarmRow}"/>
+                    </ListView.ItemContainerStyle>
+                    <ListView.View>
+                        <GridView ColumnHeaderContainerStyle="{StaticResource ListHeader}">
+                            <GridViewColumn Header="코드" DisplayMemberBinding="{Binding Code}" Width="64"/>
+                            <GridViewColumn Header="유닛" DisplayMemberBinding="{Binding Unit}" Width="96"/>
+                            <GridViewColumn Header="알람" DisplayMemberBinding="{Binding Name}" Width="210"/>
+                            <GridViewColumn Header="상세" DisplayMemberBinding="{Binding Detail}" Width="330"/>
+                            <GridViewColumn Header="발생 시각" DisplayMemberBinding="{Binding SetTimeText}" Width="120"/>
+                            <GridViewColumn Header="경과" DisplayMemberBinding="{Binding Elapsed}" Width="110"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
                 <TextBlock Text="걸려 있는 알람이 없습니다." Foreground="{StaticResource TextSecondary}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,24,0,0">
                     <TextBlock.Style>
@@ -137,27 +140,28 @@
         </DockPanel>
         <Border Grid.Row="4" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="4">
             <Grid>
-                <DataGrid Style="{StaticResource ListGrid}" ItemsSource="{Binding History}"
-                          EnableRowVirtualization="True" VirtualizingPanel.IsVirtualizing="True">
-                    <DataGrid.RowStyle>
-                        <Style TargetType="DataGridRow">
+                <ListView Style="{StaticResource AlarmList}" ItemsSource="{Binding History}">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem" BasedOn="{StaticResource AlarmRow}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsSet}" Value="True">
                                     <Setter Property="Foreground" Value="{StaticResource Danger}"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </DataGrid.RowStyle>
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="시각" Binding="{Binding Time}" Width="100"/>
-                        <DataGridTextColumn Header="구분" Binding="{Binding Event}" Width="54"/>
-                        <DataGridTextColumn Header="코드" Binding="{Binding Code}" Width="60"/>
-                        <DataGridTextColumn Header="유닛" Binding="{Binding Unit}" Width="90"/>
-                        <DataGridTextColumn Header="알람" Binding="{Binding Name}" Width="200"/>
-                        <DataGridTextColumn Header="상세" Binding="{Binding Detail}" Width="*"/>
-                        <DataGridTextColumn Header="해제한 사용자" Binding="{Binding User}" Width="100"/>
-                    </DataGrid.Columns>
-                </DataGrid>
+                    </ListView.ItemContainerStyle>
+                    <ListView.View>
+                        <GridView ColumnHeaderContainerStyle="{StaticResource ListHeader}">
+                            <GridViewColumn Header="시각" DisplayMemberBinding="{Binding Time}" Width="100"/>
+                            <GridViewColumn Header="구분" DisplayMemberBinding="{Binding Event}" Width="54"/>
+                            <GridViewColumn Header="코드" DisplayMemberBinding="{Binding Code}" Width="60"/>
+                            <GridViewColumn Header="유닛" DisplayMemberBinding="{Binding Unit}" Width="90"/>
+                            <GridViewColumn Header="알람" DisplayMemberBinding="{Binding Name}" Width="200"/>
+                            <GridViewColumn Header="상세" DisplayMemberBinding="{Binding Detail}" Width="320"/>
+                            <GridViewColumn Header="해제한 사용자" DisplayMemberBinding="{Binding User}" Width="100"/>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
                 <TextBlock Text="{Binding EmptyHistoryText}" Foreground="{StaticResource TextSecondary}"
                            HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,24,0,0"
                            Visibility="{Binding HasNoHistory, Converter={StaticResource BoolToVis}}"/>
