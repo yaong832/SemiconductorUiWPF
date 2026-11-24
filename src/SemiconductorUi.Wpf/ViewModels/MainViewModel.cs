@@ -365,6 +365,9 @@ namespace SemiconductorUi.Wpf.ViewModels
                     // I/O 모니터는 보이는 동안만 읽는다
                     if (previous == NavPage.Maintenance) Maintenance.OnHidden();
                     if (value == NavPage.Maintenance) Maintenance.OnShown();
+                    // 원본 NavigateToSection(Operate): 운전 화면에 들어오면 인터락을 확인해 미통과면 경고
+                    if (value == NavPage.Operate) Engine.WarnIfOperateInterlocksFail();
+                    UpdateOperateTabAttach();
                 }
             }
         }
@@ -402,9 +405,42 @@ namespace SemiconductorUi.Wpf.ViewModels
             get => _currentTab;
             set
             {
-                if (SetProperty(ref _currentTab, value)) OnPropertyChanged(nameof(ViewTitle));
+                if (!SetProperty(ref _currentTab, value)) return;
+                OnPropertyChanged(nameof(ViewTitle));
+                UpdateOperateTabAttach();
             }
         }
+
+        #region 운전 화면 검증 · 이송 탭 (원본 VerificationForm, TransferForm)
+
+        private VerificationViewModel _verificationTab;
+        private TransferViewModel _transferTab;
+        private OperateTab? _shownOperateTab;
+
+        /// <summary>검증 탭 (원본 ButtonNavVerification_Click → VerificationForm)</summary>
+        public VerificationViewModel VerificationTab =>
+            _verificationTab ?? (_verificationTab = new VerificationViewModel(() => Engine));
+
+        /// <summary>이송 탭 (원본 ButtonNavTransfer_Click → TransferForm)</summary>
+        public TransferViewModel TransferTab =>
+            _transferTab ?? (_transferTab = new TransferViewModel(() => Engine, _dialogs));
+
+        /// <summary>
+        /// 원본 NavigateToSection(Verification / Transfer): 탭에 들어올 때 검사·자동 계획 훅을 부른다.
+        /// 보이는 동안만 갱신 타이머를 돌린다.
+        /// </summary>
+        private void UpdateOperateTabAttach()
+        {
+            OperateTab? visible = IsOperatePage ? CurrentTab : (OperateTab?)null;
+            if (visible == _shownOperateTab) return;
+            if (_shownOperateTab == OperateTab.Verification) VerificationTab.OnHidden();
+            if (_shownOperateTab == OperateTab.Transfer) TransferTab.OnHidden();
+            _shownOperateTab = visible;
+            if (visible == OperateTab.Verification) VerificationTab.OnShown();
+            if (visible == OperateTab.Transfer) TransferTab.OnShown();
+        }
+
+        #endregion
 
         /// <summary>장비 이름 아래 작은 글자: 지금 보는 화면 (원본 Form1.Shell.GetShellViewTitle, 예: "운전 · 모니터링")</summary>
         public string ViewTitle
