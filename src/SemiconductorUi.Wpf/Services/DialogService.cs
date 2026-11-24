@@ -264,5 +264,11 @@ namespace SemiconductorUi.Wpf.Services
             if (owner != null) MessageBox.Show(owner, message, title, MessageBoxButton.OK, image);
             else MessageBox.Show(message, title, MessageBoxButton.OK, image);
         }
-    }
+    
+        public void ShowEquipmentControl(EquipmentControlViewModel model)
+        {
+            var window = new EquipmentControlWindow(model) { Owner = Owner };
+            window.ShowDialog();
+        }
+}
 }
