@@ -28,7 +28,7 @@
 | --- | --- | --- |
 | 공정 진행 로직 | 메인 폼(`Form1.cs`, 8,500줄) 안에 있음 | `Core/Process/ProcessEngine.*` 로 분리, UI 없이 실행 가능 |
 | 화면 코드 | 폼 이벤트 핸들러에서 장비 직접 호출 | ViewModel + Command, `MainWindow.xaml.cs` 19줄 |
-| 테스트 | 156개 (안전 규칙·저장소 위주) | 208개 (공정 엔진 시뮬레이션 테스트 포함) |
+| 테스트 | 156개 (안전 규칙·저장소 위주) | 227개 (공정 엔진 시뮬레이션 테스트 포함) |
 | UI 의존성 | 로직에 `WinForms.Timer`, `System.Drawing.Color` 섞임 | `ITickTimer`, `ArgbColor`로 UI와 분리 |
 | CI | Windows 빌드·테스트 (2026-11 추가) | 빌드 → 테스트 → **화면 스냅샷 PNG 자동 생성** |
 
@@ -59,7 +59,7 @@
 |---|---|---|
 | `src/SemiconductorUi.Core` | net8.0 | UI 무관 로직: `Hardware`(EtherCAT/IEG3268, 안전 규칙), `Process`(공정 엔진), `Controllers`(TM 상태 머신, 챔버), `Services`(로그·이력·백업), `Repositories`(XML) |
 | `src/SemiconductorUi.Wpf` | net8.0-windows | WPF 화면 (MVVM): `Views`, `ViewModels`, `Controls`(장비 캔버스), `Infrastructure`(RelayCommand, DispatcherTickTimer) |
-| `tests/SemiconductorUi.Core.Tests` | net8.0 | MSTest 208개 |
+| `tests/SemiconductorUi.Core.Tests` | net8.0 | MSTest 227개 |
 | `tools/SnapshotTool` | net8.0-windows | 장비 없이 주요 화면을 PNG로 렌더링 (CI에서 사용) |
 | `lib/IEG3268_Dll.dll` | | 장비 통신 DLL (원본과 동일) |
 
