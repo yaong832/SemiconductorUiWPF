@@ -355,16 +355,23 @@ namespace SemiconductorUi.Wpf.ViewModels
                     OnPropertyChanged(nameof(IsTrendPage));
                     OnPropertyChanged(nameof(IsReportPage));
                     OnPropertyChanged(nameof(IsMaintenancePage));
+                    OnPropertyChanged(nameof(IsSystemPage));
                     OnPropertyChanged(nameof(IsPlaceholderPage));
                     OnPropertyChanged(nameof(CurrentPageTitle));
                     OnPropertyChanged(nameof(ViewTitle));
                     // 원본 NavigateToSection(Trend): 들어갈 때 수집 시작
                     if (value == NavPage.Trend) Trend.OnShown();
+                    // 시스템 화면은 보이는 동안만 1초마다 고친다 (원본은 메시지 상자 한 번)
+                    if (previous == NavPage.System) SystemInfo.OnHidden();
+                    if (value == NavPage.System) SystemInfo.OnShown();
                     if (value == NavPage.Report && IsChangeHistoryTab) ChangeHistoryView.Refresh();
                     UpdateWaferHistoryTabAttach();
                     // I/O 모니터는 보이는 동안만 읽는다
                     if (previous == NavPage.Maintenance) Maintenance.OnHidden();
                     if (value == NavPage.Maintenance) Maintenance.OnShown();
+                    // 원본 NavigateToSection(Operate): 운전 화면에 들어오면 인터락을 확인해 미통과면 경고
+                    if (value == NavPage.Operate) Engine.WarnIfOperateInterlocksFail();
+                    UpdateOperateTabAttach();
                 }
             }
         }
@@ -377,8 +384,16 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         public bool IsMaintenancePage => CurrentPage == NavPage.Maintenance;
 
+        public bool IsSystemPage => CurrentPage == NavPage.System;
+
+        private SystemInfoViewModel _systemInfo;
+
+        /// <summary>시스템 화면 (원본 Form1.ShowSystemInfoSummary)</summary>
+        public SystemInfoViewModel SystemInfo =>
+            _systemInfo ?? (_systemInfo = new SystemInfoViewModel(this, OpenInExplorer));
+
         /// <summary>아직 이관하지 않은 메뉴</summary>
-        public bool IsPlaceholderPage => !IsOperatePage && !IsTrendPage && !IsReportPage && !IsMaintenancePage;
+        public bool IsPlaceholderPage => !IsOperatePage && !IsTrendPage && !IsReportPage && !IsMaintenancePage && !IsSystemPage;
 
         public string CurrentPageTitle
         {
@@ -402,9 +417,42 @@ namespace SemiconductorUi.Wpf.ViewModels
             get => _currentTab;
             set
             {
-                if (SetProperty(ref _currentTab, value)) OnPropertyChanged(nameof(ViewTitle));
+                if (!SetProperty(ref _currentTab, value)) return;
+                OnPropertyChanged(nameof(ViewTitle));
+                UpdateOperateTabAttach();
             }
         }
+
+        #region 운전 화면 검증 · 이송 탭 (원본 VerificationForm, TransferForm)
+
+        private VerificationViewModel _verificationTab;
+        private TransferViewModel _transferTab;
+        private OperateTab? _shownOperateTab;
+
+        /// <summary>검증 탭 (원본 ButtonNavVerification_Click → VerificationForm)</summary>
+        public VerificationViewModel VerificationTab =>
+            _verificationTab ?? (_verificationTab = new VerificationViewModel(() => Engine));
+
+        /// <summary>이송 탭 (원본 ButtonNavTransfer_Click → TransferForm)</summary>
+        public TransferViewModel TransferTab =>
+            _transferTab ?? (_transferTab = new TransferViewModel(() => Engine, _dialogs));
+
+        /// <summary>
+        /// 원본 NavigateToSection(Verification / Transfer): 탭에 들어올 때 검사·자동 계획 훅을 부른다.
+        /// 보이는 동안만 갱신 타이머를 돌린다.
+        /// </summary>
+        private void UpdateOperateTabAttach()
+        {
+            OperateTab? visible = IsOperatePage ? CurrentTab : (OperateTab?)null;
+            if (visible == _shownOperateTab) return;
+            if (_shownOperateTab == OperateTab.Verification) VerificationTab.OnHidden();
+            if (_shownOperateTab == OperateTab.Transfer) TransferTab.OnHidden();
+            _shownOperateTab = visible;
+            if (visible == OperateTab.Verification) VerificationTab.OnShown();
+            if (visible == OperateTab.Transfer) TransferTab.OnShown();
+        }
+
+        #endregion
 
         /// <summary>장비 이름 아래 작은 글자: 지금 보는 화면 (원본 Form1.Shell.GetShellViewTitle, 예: "운전 · 모니터링")</summary>
         public string ViewTitle
@@ -1085,6 +1133,53 @@ namespace SemiconductorUi.Wpf.ViewModels
             OnPropertyChanged(nameof(IsEthercatConnected));
             NotifyPill();
             Monitoring?.UpdateScene();
+        }
+
+        #endregion
+
+        #region 장비 제어 창 (원본 NavigationEventHandlers.ButtonEquipmentControl_Click)
+
+        /// <summary>
+        /// 장비 직접 제어 창을 연다 (모달). 창에서 장비를 움직이면 메인 화면 그림(도어, 램프, 서보 상태)을 맞춘다.
+        /// </summary>
+        public void OpenEquipmentControl()
+        {
+            if (!EnsureLoggedIn()) return;
+            try
+            {
+                var control = new EquipmentManualControl(Ethercat, () => IsEthercatConnected,
+                    (message, title, kind) => ((IProcessHost)this).ShowMessage(message, title, kind),
+                    action => _dispatcher.BeginInvoke(action),
+                    DispatcherOnce.Schedule,
+                    () => DateTime.Now,
+                    AddLog)
+                {
+                    IsAutoProcessActive = () => Engine.IsAutoProcessActive,
+                    IsHomedBySequence = () => Engine.IsHomedBySequence,
+                    OnDoorStateChanged = (region, isOpen) => { Engine.SetDoorVisual(region, isOpen); Monitoring?.UpdateScene(); },
+                    OnChamberLampStateChanged = (region, isOn) => { Engine.SetChamberLampVisual(region, isOn); Monitoring?.UpdateScene(); },
+                    OnMainLampStateChanged = (red, yellow, green) => { Engine.SetMainLampVisual(red, yellow, green); Monitoring?.UpdateScene(); },
+                    OnServoStateChanged = servoIsOn =>
+                    {
+                        Engine.ServoOn = servoIsOn; // 서보 상태 플래그
+                        if (!servoIsOn) HardwareManager.ResetTmHardwareInitialized(); // 서보 OFF 시 원점복귀 상태 초기화
+                        Engine.UpdateServoStatusLabel();
+                        NotifyServo();
+                    },
+                    OnHomingRequested = () => { Engine.MarkHomedByManualControl(); NotifyServo(); },
+                    OnTeachingRequested = OpenTeachingPositions,
+                    OnEmergencyStopRequested = () => ExecuteEmergencyStop("장비 제어 창 긴급 정지 버튼"),
+                };
+                using (var model = new EquipmentControlViewModel(control, Ethercat))
+                {
+                    _dialogs.ShowEquipmentControl(model);
+                }
+            }
+            catch (Exception ex)
+            {
+                AddLog($"Equipment Control 폼 오류: {ex.Message}", "ERROR");
+                _dialogs.Error($"Equipment Control 폼을 여는 중 오류가 발생했습니다.\r\n{ex.Message}", "오류");
+            }
         }
 
         #endregion
