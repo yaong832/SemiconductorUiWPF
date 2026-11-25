@@ -12,6 +12,7 @@ namespace SemiconductorUi.Wpf.Controls
     /// <summary>
     /// 시간축 꺾은선 그래프 (원본 TrendForm의 MS Chart 대신 직접 그림).
     /// 선마다 색과 실선/점선을 정하고, 마우스를 올리면 가장 가까운 시각의 값을 보여 준다.
+    /// 값이 NaN인 구간은 선을 끊는다 (원본 EmptyPointStyle 투명).
     /// </summary>
     public sealed class TrendChart : FrameworkElement
     {
@@ -40,6 +41,28 @@ namespace SemiconductorUi.Wpf.Controls
         {
             get => (bool)GetValue(LogScaleProperty);
             set => SetValue(LogScaleProperty, value);
+        }
+
+        /// <summary>시간축 시작 (null이면 샘플의 처음). 원본 AxisX.Minimum</summary>
+        public static readonly DependencyProperty TimeFromProperty = DependencyProperty.Register(
+            nameof(TimeFrom), typeof(DateTime?), typeof(TrendChart),
+            new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+        /// <summary>시간축 끝 (null이면 샘플의 마지막). 원본 AxisX.Maximum</summary>
+        public static readonly DependencyProperty TimeToProperty = DependencyProperty.Register(
+            nameof(TimeTo), typeof(DateTime?), typeof(TrendChart),
+            new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+        public DateTime? TimeFrom
+        {
+            get => (DateTime?)GetValue(TimeFromProperty);
+            set => SetValue(TimeFromProperty, value);
+        }
+
+        public DateTime? TimeTo
+        {
+            get => (DateTime?)GetValue(TimeToProperty);
+            set => SetValue(TimeToProperty, value);
         }
 
         /// <summary>로그 눈금에서 0 이하 값을 대신할 가장 작은 값</summary>
@@ -117,7 +140,8 @@ namespace SemiconductorUi.Wpf.Controls
 
             DrawLegend(dc, series, w, dpi);
 
-            if (series.Count == 0)
+            // 값이 하나도 없으면 (공정 중이 아님 / 레시피 미적용) 빈 칸 안내
+            if (!series.Any(s => s.Points.Any(p => IsValue(p.v))))
             {
                 dc.DrawRectangle(null, AxisPen, plot);
                 var empty = Text(EmptyText ?? "샘플이 없습니다.", 12, TextSecondary, dpi);
@@ -126,11 +150,12 @@ namespace SemiconductorUi.Wpf.Controls
             }
 
             // 범위
-            DateTime t0 = series.Min(s => s.Points[0].t), t1 = series.Max(s => s.Points[s.Points.Count - 1].t);
+            DateTime t0 = TimeFrom ?? series.Min(s => s.Points[0].t), t1 = TimeTo ?? series.Max(s => s.Points[s.Points.Count - 1].t);
             if (t1 <= t0) t1 = t0.AddSeconds(1);
             bool log = LogScale;
             double Map(double v) => log ? Math.Log10(Math.Max(LogFloor, v)) : v;
-            double vMin = series.Min(s => s.Points.Min(p => Map(p.v))), vMax = series.Max(s => s.Points.Max(p => Map(p.v)));
+            var values = series.SelectMany(s => s.Points).Where(p => IsValue(p.v)).Select(p => Map(p.v)).ToList();
+            double vMin = values.Min(), vMax = values.Max();
             double step;
             if (log)
             {
@@ -185,12 +210,29 @@ namespace SemiconductorUi.Wpf.Controls
                 var geo = new StreamGeometry();
                 using (var g = geo.Open())
                 {
-                    g.BeginFigure(new Point(X(s.Points[0].t), Y(s.Points[0].v)), false, false);
-                    if (s.Points.Count == 1)
+                    // NaN에서 선을 끊고 다음 값부터 새로 시작한다. 혼자 떨어진 점은 짧은 선으로 보이게 한다.
+                    int runStart = -1;
+                    for (int i = 0; i <= s.Points.Count; i++)
                     {
-                        g.LineTo(new Point(X(s.Points[0].t) + 1, Y(s.Points[0].v)), true, false);
+                        bool ok = i < s.Points.Count && IsValue(s.Points[i].v);
+                        if (ok && runStart < 0)
+                        {
+                            runStart = i;
+                            g.BeginFigure(new Point(X(s.Points[i].t), Y(s.Points[i].v)), false, false);
+                        }
+                        else if (ok)
+                        {
+                            g.LineTo(new Point(X(s.Points[i].t), Y(s.Points[i].v)), true, false);
+                        }
+                        else if (runStart >= 0)
+                        {
+                            if (i - 1 == runStart)
+                            {
+                                g.LineTo(new Point(X(s.Points[runStart].t) + 1, Y(s.Points[runStart].v)), true, false);
+                            }
+                            runStart = -1;
+                        }
                     }
-                    for (int i = 1; i < s.Points.Count; i++) g.LineTo(new Point(X(s.Points[i].t), Y(s.Points[i].v)), true, false);
                 }
                 geo.Freeze();
                 dc.DrawGeometry(null, pen, geo);
@@ -213,8 +255,13 @@ namespace SemiconductorUi.Wpf.Controls
                 {
                     var hit = s.Points.Where(p => p.t == nearest).Select(p => (double?)p.v).FirstOrDefault();
                     if (hit == null) continue;
-                    dc.DrawEllipse(Frozen(s.Color), null, new Point(cx, Y(hit.Value)), 3, 3);
-                    lines.Add((Text($"{s.Label}  {hit.Value.ToString(fmt, CultureInfo.CurrentCulture)}", 11.5, Brushes.White, dpi), s.Color));
+                    string valueText = "-";
+                    if (IsValue(hit.Value))
+                    {
+                        dc.DrawEllipse(Frozen(s.Color), null, new Point(cx, Y(hit.Value)), 3, 3);
+                        valueText = hit.Value.ToString(fmt, CultureInfo.CurrentCulture);
+                    }
+                    lines.Add((Text($"{s.Label}  {valueText}", 11.5, Brushes.White, dpi), s.Color));
                 }
                 double tipW = lines.Max(l => l.text.Width) + 30, tipH = lines.Sum(l => l.text.Height) + 12;
                 double tx = cx + 12 + tipW > plot.Right ? cx - 12 - tipW : cx + 12;
@@ -229,6 +276,8 @@ namespace SemiconductorUi.Wpf.Controls
                 }
             }
         }
+
+        private static bool IsValue(double v) => !double.IsNaN(v) && !double.IsInfinity(v);
 
         private static void DrawLegend(DrawingContext dc, List<TrendSeries> series, double width, double dpi)
         {
