@@ -359,7 +359,8 @@ namespace SemiconductorUi.Wpf.ViewModels
                     OnPropertyChanged(nameof(IsPlaceholderPage));
                     OnPropertyChanged(nameof(CurrentPageTitle));
                     OnPropertyChanged(nameof(ViewTitle));
-                    // 원본 NavigateToSection(Trend): 들어갈 때 수집 시작
+                    // 원본 TrendForm: 열면 바로 그리고 닫을 때까지 1초마다 갱신 (기록은 공정 중 늘 함)
+                    if (previous == NavPage.Trend) Trend.OnHidden();
                     if (value == NavPage.Trend) Trend.OnShown();
                     // 시스템 화면은 보이는 동안만 1초마다 고친다 (원본은 메시지 상자 한 번)
                     if (previous == NavPage.System) SystemInfo.OnHidden();
@@ -1273,7 +1274,6 @@ namespace SemiconductorUi.Wpf.ViewModels
             // 원본 TimerEventHandlers.SimulationTimer_Tick
             Engine.OnSimulationTick();
             Monitoring.OnTick();
-            if (IsTrendPage) Trend.Refresh();
             OnPropertyChanged(nameof(IsEmergencyStopped));
         }
 

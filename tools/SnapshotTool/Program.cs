@@ -66,9 +66,8 @@ namespace SnapshotTool
                 {
                     var t = new DateTime(2026, 11, 4, 9, 0, 0);
                     vm.Engine.TrendClock = () => t = t.AddSeconds(1);
-                    vm.Engine.StartTrendCapture();
                 },
-                vm => { vm.CurrentPage = NavPage.Trend; vm.Trend.Units[2].IsChecked = false; }));
+                vm => { vm.Trend.SelectedWindow = vm.Trend.Windows[0]; vm.CurrentPage = NavPage.Trend; }));
             // 알람 이력 창, 상단 바 알람 수 표시
             failures += Try(() => SnapAlarmHistory(Path.Combine(outDir, "alarm-history.png")));
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-alarms-1600x900.png"), 0, null,
