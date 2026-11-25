@@ -28,6 +28,16 @@ namespace SemiconductorUi.Process
                 return;
             }
 
+            // 공정이 끝난 뒤 원점복귀 중: 원점복귀 중인 축에 이송 명령이 나가지 않도록 끝날 때까지 기다립니다.
+            if (IsPostProcessHomingInProgress)
+            {
+                AddLogMessage($"원점복귀 중 공정 시작 시도 차단 (사용자: {ViewModel.CurrentUser})", "WARN");
+                Host.ShowMessage(
+                    "TM이 원점으로 돌아가는 중입니다.\n\n원점복귀가 끝나 화면 위 상태가 '대기'로 바뀐 뒤 시작하세요.",
+                    "원점복귀 중", MessageKind.Information);
+                return;
+            }
+
             // 환경 알람으로 멈춘 공정: 알람 리셋을 먼저 해야 이어 갈 수 있습니다.
             if (ProcessHeldByAlarm && SimulationRunning)
             {
@@ -70,6 +80,20 @@ namespace SemiconductorUi.Process
                 if (WaferLoadState != MainFormViewModel.WaferLoadStateType.Loading)
                 {
                     Host.ShowMessage("웨이퍼를 '로딩' 상태로 전환한 뒤 공정을 시작할 수 있습니다.", "준비 미완료", MessageKind.Warning);
+                    return;
+                }
+
+                // 레시피를 한 번도 적용하지 않았으면 챔버 시간(30/45/45초)·2차 노광(안 함)·환경 목표값이
+                // 화면에 보이지 않는 프로그램 기본값으로 진행되므로, 새로 시작할 때는 적용을 먼저 받습니다.
+                // (일시정지 뒤 이어 가기와 알람 리셋 뒤 이어 가기는 위/아래 분기에서 그대로 진행)
+                if (!RecipeApplied)
+                {
+                    AddLogMessage($"레시피 미적용 상태에서 공정 시작 시도 차단 (사용자: {ViewModel.CurrentUser})", "WARN");
+                    Host.ShowMessage(
+                        "레시피가 적용되지 않았습니다.\n\n" +
+                        "레시피를 고른 뒤 '레시피 적용'을 누르고 시작하세요.\n" +
+                        "적용하지 않으면 챔버 시간·2차 노광·환경 목표값이 화면에 보이지 않는 기본값으로 진행됩니다.",
+                        "레시피 미적용", MessageKind.Warning);
                     return;
                 }
 
@@ -254,6 +278,18 @@ namespace SemiconductorUi.Process
         /// <summary>원본 ProcessEventHandlers.ButtonResetProcess_Click</summary>
         public void ResetProcessButton()
         {
+            // 서보 ON·원점복귀가 백그라운드에서 도는 중에 리셋하면 원점복귀가 하나 더 나가고,
+            // 공정 시작의 초기화 중이면 리셋 뒤에 공정이 그대로 시작됩니다.
+            if (IsBackgroundHomingInProgress())
+            {
+                AddLogMessage($"원점복귀 중 공정 리셋 시도 차단 (사용자: {ViewModel.CurrentUser})", "WARN");
+                Host.ShowMessage(
+                    "서보 ON·원점복귀가 진행 중이라 공정 리셋을 할 수 없습니다.\n\n" +
+                    "원점복귀가 끝나 화면 위 상태가 바뀐 뒤 다시 누르세요. 급히 멈춰야 하면 긴급 정지를 누르세요.",
+                    "공정 리셋 제한", MessageKind.Warning);
+                return;
+            }
+
             if (IsEmergencyStopped())
             {
                 Host.ShowMessage(
@@ -262,11 +298,9 @@ namespace SemiconductorUi.Process
                 return;
             }
 
-            string confirmMessage = "현재 공정을 완전히 초기화하시겠습니까?\nTM 대기 상태, FOUP 표시, 챔버 상태 등이 리셋됩니다.";
-            if (EthercatConnected)
-            {
-                confirmMessage += "\n\n[하드웨어 모드]\n• 실린더 후진 확인\n• 진공 OFF\n• 원점복귀 수행";
-            }
+            // 안내 문구는 아래 실제 동작(화면 초기화 → 하드웨어 백그라운드 처리) 순서와 조건대로 적습니다.
+            string confirmMessage = BuildResetProcessConfirmMessage(
+                WaferLoadState == MainFormViewModel.WaferLoadStateType.Loading, EthercatConnected);
 
             if (!Host.Confirm(confirmMessage, "공정 리셋 확인"))
             {
@@ -302,135 +336,178 @@ namespace SemiconductorUi.Process
                 AddLogMessage("공정 리셋: 하드웨어 초기화 시작 (백그라운드)", "INFO");
                 var ethercat = EtherCAT_M;
                 var servoOn = IsServoOn;
-                HardwareOperation.Run(ethercat, () =>
+                // 끝날 때까지 화면에 '원점복귀 중'을 보이고 시작·리셋·수동 조작 등을 막습니다.
+                BeginPostProcessHoming();
+                try
                 {
-                    try
+                    HardwareOperation.Run(ethercat, () =>
                     {
-                        ethercat.Digital_Output(14, false);
-                        ethercat.Digital_Output(15, false);
-                        AddLogMessage("공정 리셋: 진공 OFF", "INFO");
-
-                        bool cylinderRetracted = false;
-                        try { cylinderRetracted = ethercat.Digital_Input(12); }
-                        catch (Exception ex) { AddLogMessage($"실린더 상태 확인 오류: {ex.Message}", "WARN"); }
-
-                        if (!cylinderRetracted)
+                        try
                         {
-                            AddLogMessage("공정 리셋: 실린더 후진 시도", "INFO");
-                            ethercat.Digital_Output(12, false);
-                            ethercat.Digital_Output(13, true);
+                            ethercat.Digital_Output(14, false);
+                            ethercat.Digital_Output(15, false);
+                            AddLogMessage("공정 리셋: 진공 OFF", "INFO");
 
-                            var timeout = DateTime.Now.AddSeconds(5);
-                            while (DateTime.Now < timeout)
-                            {
-                                ethercat.ThrowIfEmergencyStopped();
-                                try
-                                {
-                                    if (ethercat.Digital_Input(12)) { cylinderRetracted = true; break; }
-                                }
-                                catch { }
-                                System.Threading.Thread.Sleep(100);
-                            }
+                            bool cylinderRetracted = false;
+                            try { cylinderRetracted = ethercat.Digital_Input(12); }
+                            catch (Exception ex) { AddLogMessage($"실린더 상태 확인 오류: {ex.Message}", "WARN"); }
 
                             if (!cylinderRetracted)
                             {
-                                AddLogMessage("공정 리셋: 실린더 후진 타임아웃 - 수동 확인 필요", "WARN");
-                                Host.BeginInvoke(() => Host.ShowMessage(
-                                    "실린더 후진이 완료되지 않았습니다.\n수동으로 실린더 상태를 확인해주세요.",
-                                    "경고", MessageKind.Warning));
-                            }
-                            else
-                            {
-                                AddLogMessage("공정 리셋: 실린더 후진 완료", "INFO");
-                            }
-                        }
+                                AddLogMessage("공정 리셋: 실린더 후진 시도", "INFO");
+                                ethercat.Digital_Output(12, false);
+                                ethercat.Digital_Output(13, true);
 
-                        if (servoOn && cylinderRetracted)
-                        {
-                            // 상하 원점복귀가 끝난 것을 확인한 뒤에 좌우를 보냅니다. 실린더는 두 단계 모두 후진이어야 합니다.
-                            AddLogMessage("공정 리셋: 원점복귀 시작", "INFO");
-                            string homingFailReason;
-                            bool emergencyStopped = false;
-                            try
-                            {
-                                homingFailReason = new ResetHomingSequence(ethercat).Run(msg => AddLogMessage(msg, "INFO"));
-                            }
-                            catch (EmergencyStopActiveException stopEx)
-                            {
-                                emergencyStopped = true;
-                                homingFailReason = stopEx.Message;
-                            }
-                            catch (Exception homingEx)
-                            {
-                                homingFailReason = $"원점복귀 오류: {homingEx.Message}";
-                            }
-
-                            if (emergencyStopped)
-                            {
-                                AddLogMessage($"공정 리셋 원점복귀 중단: {homingFailReason}", "WARN");
-                                Host.BeginInvoke(() => TmHardwareInitialized = false);
-                            }
-                            else if (homingFailReason == null)
-                            {
-                                Host.BeginInvoke(() =>
+                                var timeout = DateTime.Now.AddSeconds(5);
+                                while (DateTime.Now < timeout)
                                 {
-                                    TmHardwareInitialized = true;
-                                    TmHardwareController?.MarkHomedAfterSuccessfulHoming();
-                                });
-                            }
-                            else
-                            {
-                                AddLogMessage($"공정 리셋 원점복귀 실패: {homingFailReason}", "ERROR");
-                                Host.BeginInvoke(() =>
+                                    ethercat.ThrowIfEmergencyStopped();
+                                    try
+                                    {
+                                        if (ethercat.Digital_Input(12)) { cylinderRetracted = true; break; }
+                                    }
+                                    catch { }
+                                    System.Threading.Thread.Sleep(100);
+                                }
+
+                                if (!cylinderRetracted)
                                 {
-                                    TmHardwareInitialized = false;
-                                    Host.ShowMessage(
-                                        $"공정 초기화 중 원점복귀를 끝내지 못했습니다.\n\n{homingFailReason}\n\n장비 상태를 확인한 뒤 원점복귀를 다시 해 주세요.",
-                                        "원점복귀 실패", MessageKind.Warning);
-                                });
+                                    AddLogMessage("공정 리셋: 실린더 후진 타임아웃 - 수동 확인 필요", "WARN");
+                                    Host.BeginInvoke(() => Host.ShowMessage(
+                                        "실린더 후진이 완료되지 않았습니다.\n수동으로 실린더 상태를 확인해주세요.",
+                                        "경고", MessageKind.Warning));
+                                }
+                                else
+                                {
+                                    AddLogMessage("공정 리셋: 실린더 후진 완료", "INFO");
+                                }
                             }
-                        }
-                        else if (!servoOn)
-                        {
-                            Host.BeginInvoke(() =>
-                            {
-                                AddLogMessage("공정 리셋: 서보 OFF 상태 - 서보 ON 후 원점복귀 필요", "WARN");
-                                TmHardwareInitialized = false;
-                            });
-                        }
 
-                        TmHardwareActionPending = false;
-                        TmSettleWaiting = false;
-
-                        Host.BeginInvoke(() =>
-                        {
-                            if (TmHardwareController != null)
+                            if (servoOn && cylinderRetracted)
                             {
+                                // 상하 원점복귀가 끝난 것을 확인한 뒤에 좌우를 보냅니다. 실린더는 두 단계 모두 후진이어야 합니다.
+                                AddLogMessage("공정 리셋: 원점복귀 시작", "INFO");
+                                string homingFailReason;
+                                bool emergencyStopped = false;
                                 try
                                 {
-                                    TmHardwareController.UpdateCurrentPositions();
-                                    long currentX = TmHardwareController.CurrentAxis2Position;
-                                    long currentY = TmHardwareController.CurrentAxis1Position;
-                                    var hardwareRegion = EquipmentRegionHelper.DetermineRegionFromPosition(currentX, currentY, TmHardwareController.Positions);
-                                    TmVisualTarget = hardwareRegion;
-                                    TmCurrentPosition = hardwareRegion;
-                                    UpdateTmVisualizationFromHardware();
-                                    AddLogMessage($"공정 리셋: TM 위치 업데이트 완료 - {EquipmentRegionHelper.FormatRegionLabel(hardwareRegion)}", "INFO");
+                                    homingFailReason = new ResetHomingSequence(ethercat).Run(msg => AddLogMessage(msg, "INFO"));
                                 }
-                                catch (Exception ex)
+                                catch (EmergencyStopActiveException stopEx)
                                 {
-                                    AddLogMessage($"공정 리셋: TM 위치 읽기 오류: {ex.Message}", "WARN");
+                                    emergencyStopped = true;
+                                    homingFailReason = stopEx.Message;
+                                }
+                                catch (Exception homingEx)
+                                {
+                                    homingFailReason = $"원점복귀 오류: {homingEx.Message}";
+                                }
+
+                                if (emergencyStopped)
+                                {
+                                    AddLogMessage($"공정 리셋 원점복귀 중단: {homingFailReason}", "WARN");
+                                    Host.BeginInvoke(() => TmHardwareInitialized = false);
+                                }
+                                else if (homingFailReason == null)
+                                {
+                                    Host.BeginInvoke(() =>
+                                    {
+                                        TmHardwareInitialized = true;
+                                        TmHardwareController?.MarkHomedAfterSuccessfulHoming();
+                                    });
+                                }
+                                else
+                                {
+                                    AddLogMessage($"공정 리셋 원점복귀 실패: {homingFailReason}", "ERROR");
+                                    Host.BeginInvoke(() =>
+                                    {
+                                        TmHardwareInitialized = false;
+                                        Host.ShowMessage(
+                                            $"공정 초기화 중 원점복귀를 끝내지 못했습니다.\n\n{homingFailReason}\n\n장비 상태를 확인한 뒤 원점복귀를 다시 해 주세요.",
+                                            "원점복귀 실패", MessageKind.Warning);
+                                    });
                                 }
                             }
-                            UpdateServoStatusLabel();
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                        AddLogMessage($"공정 리셋 하드웨어 오류: {ex.Message}", "ERROR");
-                    }
-                });
+                            else if (!servoOn)
+                            {
+                                Host.BeginInvoke(() =>
+                                {
+                                    AddLogMessage("공정 리셋: 서보 OFF 상태 - 서보 ON 후 원점복귀 필요", "WARN");
+                                    TmHardwareInitialized = false;
+                                });
+                            }
+
+                            TmHardwareActionPending = false;
+                            TmSettleWaiting = false;
+
+                            Host.BeginInvoke(() =>
+                            {
+                                if (TmHardwareController != null)
+                                {
+                                    try
+                                    {
+                                        TmHardwareController.UpdateCurrentPositions();
+                                        long currentX = TmHardwareController.CurrentAxis2Position;
+                                        long currentY = TmHardwareController.CurrentAxis1Position;
+                                        var hardwareRegion = EquipmentRegionHelper.DetermineRegionFromPosition(currentX, currentY, TmHardwareController.Positions);
+                                        TmVisualTarget = hardwareRegion;
+                                        TmCurrentPosition = hardwareRegion;
+                                        UpdateTmVisualizationFromHardware();
+                                        AddLogMessage($"공정 리셋: TM 위치 업데이트 완료 - {EquipmentRegionHelper.FormatRegionLabel(hardwareRegion)}", "INFO");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        AddLogMessage($"공정 리셋: TM 위치 읽기 오류: {ex.Message}", "WARN");
+                                    }
+                                }
+                                UpdateServoStatusLabel();
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            AddLogMessage($"공정 리셋 하드웨어 오류: {ex.Message}", "ERROR");
+                        }
+                        finally
+                        {
+                            EndPostProcessHoming();
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // 비상정지 중이면 시작되지 않습니다 (HardwareOperation.Run).
+                    AddLogMessage($"공정 리셋 하드웨어 초기화를 시작하지 못했습니다: {ex.Message}", "ERROR");
+                    EndPostProcessHoming();
+                }
             }
+        }
+
+        /// <summary>
+        /// 원본 f35ceee: 공정 리셋 확인 문구. 실제 동작(화면 초기화 → 하드웨어 백그라운드 처리) 순서와 조건대로 적습니다.
+        /// </summary>
+        public static string BuildResetProcessConfirmMessage(bool keepFoupDisplay, bool ethercatConnected)
+        {
+            string confirmMessage =
+                "진행 중인 공정을 중단하고 초기화하시겠습니까?\n\n" +
+                "• 진행 중인 이송을 취소하고, 현재 로트는 '중단'으로 기록합니다.\n" +
+                "• TM은 대기 위치, 챔버는 대기 상태로 표시하고 완료 개수를 0으로 합니다.\n" +
+                "• 환경 알람으로 멈춘 상태도 해제합니다.\n" +
+                (keepFoupDisplay
+                    ? "• FOUP 표시는 그대로 둡니다 (웨이퍼 로딩 중).\n"
+                    : "• FOUP 표시를 비웁니다.\n") +
+                "• 챔버나 블레이드에 있던 웨이퍼는 화면에서 사라집니다. 실제 웨이퍼 위치는 직접 확인하세요.";
+
+            // 하드웨어 모드 추가 안내 (공정 리셋의 HardwareOperation.Run 안의 순서와 같음)
+            if (ethercatConnected)
+            {
+                confirmMessage +=
+                    "\n\n[하드웨어 모드] 화면은 바로 대기 상태로 바뀌고, 장비는 뒤에서 아래 순서로 진행합니다.\n" +
+                    "1. 진공 OFF\n" +
+                    "2. 실린더가 후진 상태가 아니면 후진 (최대 5초)\n" +
+                    "3. 원점복귀: 상하 → 회전 (서보 ON이고 실린더 후진이 확인된 경우만)\n" +
+                    "• 도어와 챔버 램프에는 명령을 보내지 않습니다 (화면의 도어 표시만 닫힘으로 바뀜).";
+            }
+            return confirmMessage;
         }
 
         /// <summary>원본 Form1.buttonServoHome_Click: 상하(Axis1) → 좌우(Axis2) 순서로 원점복귀</summary>

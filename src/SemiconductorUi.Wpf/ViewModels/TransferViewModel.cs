@@ -136,7 +136,10 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         public bool HasQueueRows => QueueRows.Count > 0;
 
-        /// <summary>공정(로트)이 돌고 있는 동안은 큐 비우기를 막는다 (WPF 안전장치)</summary>
+        /// <summary>
+        /// 공정(로트)이 돌거나 서보 ON·원점복귀 중이면 큐 비우기를 막는다
+        /// (원본 cab587e와 같은 기준 IsProcessActiveOrStarting. WPF는 버튼을 미리 끈다)
+        /// </summary>
         public bool IsLotRunning
         {
             get => _isLotRunning;
@@ -151,7 +154,7 @@ namespace SemiconductorUi.Wpf.ViewModels
         }
 
         public string ClearQueueToolTip => IsLotRunning
-            ? "공정 중에는 비울 수 없습니다. 비우면 챔버 예약이 풀리지 않아 공정이 멈춥니다."
+            ? "공정 중(일시정지 포함)이거나 서보 ON·원점복귀 중에는 비울 수 없습니다. 비우면 챔버 예약이 풀리지 않아 공정이 끝나지 않습니다."
             : "대기 중인 이송 작업을 모두 지웁니다.";
 
         /// <summary>마지막 버튼 결과 (계획 없음 등)</summary>
@@ -226,7 +229,7 @@ namespace SemiconductorUi.Wpf.ViewModels
             var engine = _engine();
             if (engine == null) return;
 
-            IsLotRunning = engine.SimulationRunning;
+            IsLotRunning = engine.IsProcessActiveOrStarting();
             TmStatusText = engine.GetTmStatusText();
             TmPhaseText = $"단계 {engine.TmPhase}";
             IsTmBusy = engine.TmPhase != TransferController.TmPhase.Idle;

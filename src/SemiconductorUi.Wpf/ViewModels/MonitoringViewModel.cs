@@ -28,11 +28,13 @@ namespace SemiconductorUi.Wpf.ViewModels
             _shell = shell;
             _dialogs = dialogs;
 
-            StartCommand = new RelayCommand(() => Run(Engine.StartButton), () => State.IsLoggedIn && !Engine.IsHardwareInitInProgress);
+            // 원본 9da56f4: 공정 시작의 서보 ON·원점복귀 중, 공정이 끝난 뒤 원점복귀 중에는 시작과 공정 리셋을 막습니다.
+            StartCommand = new RelayCommand(() => Run(Engine.StartButton), () => State.IsLoggedIn && !Engine.IsBackgroundHomingInProgress());
             PauseCommand = new RelayCommand(Pause, () => State.IsLoggedIn);
             EmergencyStopCommand = new RelayCommand(() => { Engine.EmergencyStopButton(); AfterCommand(); });
             ResetAlarmCommand = new RelayCommand(() => Run(Engine.ResetAlarmButton), () => State.IsLoggedIn);
-            ResetProcessCommand = new RelayCommand(() => Run(Engine.ResetProcessButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
+            // 공정 리셋은 공정 중에도 누를 수 있다 (원본 buttonResetProcess, 안내 문구가 "공정을 멈춰야 하면 '공정 리셋'"을 권함)
+            ResetProcessCommand = new RelayCommand(() => Run(Engine.ResetProcessButton), () => State.IsLoggedIn && !Engine.IsBackgroundHomingInProgress());
             ToggleFoupMountCommand = new RelayCommand(() => Run(Engine.ToggleFoupMountButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
             WaferLoadingCommand = new RelayCommand(() => Run(Engine.WaferLoadingButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);
             WaferUnloadingCommand = new RelayCommand(() => Run(Engine.WaferUnloadingButton), () => State.IsLoggedIn && !_shell.Simulation.IsRunning);

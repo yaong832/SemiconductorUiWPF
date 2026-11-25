@@ -35,6 +35,15 @@ namespace SnapshotTool
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-1600x900.png"), 0));
             // 시뮬레이션 공정을 돌린 중간 화면 (공정 엔진이 그림을 움직이는지 확인)
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-running-1600x900.png"), 75));
+            // 공정이 끝난 뒤 원점복귀 중 (원본 9da56f4): 상단 '원점복귀 중', TM 카드, 시작·공정 리셋 잠김
+            failures += Try(() => SnapMainWindow(Path.Combine(outDir, "main-window-homing-1600x900.png"), 0, null,
+                vm =>
+                {
+                    vm.State.IsLoggedIn = true;
+                    vm.State.CurrentUser = "operator";
+                    vm.State.CurrentRole = "운영자";
+                    vm.Engine.BeginPostProcessHoming();
+                }));
             // 운전 화면 검증 탭: 공정 전(챔버 데이터 없음)과 공정 중 (시뮬레이션이라 EtherCAT은 미연결)
             failures += Try(() => SnapMainWindow(Path.Combine(outDir, "operate-verification-idle-1600x900.png"), 0, null,
                 vm => vm.CurrentTab = OperateTab.Verification));

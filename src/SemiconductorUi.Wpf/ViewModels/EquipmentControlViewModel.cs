@@ -233,7 +233,7 @@ namespace SemiconductorUi.Wpf.ViewModels
         public string TimerHint => "타이머: 초 입력 후 [실행] → 해당 시간만큼 ON(열림) 후 자동 OFF(닫힘)";
 
         public string ProcessHint =>
-            "자동 공정 실행/일시정지 중에는 도어·램프 ON·실린더·진공·서보 수동 제어를 막습니다. 급히 멈춰야 하면 긴급 정지를 누르세요.";
+            "공정 중(일시정지·알람 대기, 서보 ON·원점복귀 포함)에는 도어·램프 ON·실린더·진공·서보 수동 제어를 막습니다. 급히 멈춰야 하면 긴급 정지를 누르세요.";
 
         public ICommand AllDoorsOpenCommand { get; }
         public ICommand AllDoorsCloseCommand { get; }

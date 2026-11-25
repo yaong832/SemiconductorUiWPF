@@ -502,7 +502,9 @@ namespace SemiconductorUi.Wpf.ViewModels
                     case ProcessState.Running: return "공정 진행 중";
                     case ProcessState.Paused: return "일시 정지";
                     case ProcessState.Error: return "경고 · 정지";
-                    default: return "대기";
+                    default:
+                        // 원본 9da56f4: 공정은 대기지만 TM이 원점복귀로 움직이는 중 (시작·리셋 등이 잠겨 있음)
+                        return Engine != null && Engine.IsBackgroundHomingInProgress() ? "원점복귀 중" : "대기";
                 }
             }
         }
@@ -519,7 +521,10 @@ namespace SemiconductorUi.Wpf.ViewModels
             {
                 case ProcessState.Running: return (Res("Primary"), Res("Primary"), Rgb(232, 239, 250));
                 case ProcessState.Paused: return (Res("Warning"), Rgb(150, 92, 8), Rgb(252, 241, 222));
-                default: return (Rgb(140, 150, 164), Rgb(58, 69, 85), Rgb(238, 241, 245));
+                default:
+                    if (Engine != null && Engine.IsBackgroundHomingInProgress())
+                        return (Res("Warning"), Rgb(150, 92, 8), Rgb(252, 241, 222));
+                    return (Rgb(140, 150, 164), Rgb(58, 69, 85), Rgb(238, 241, 245));
             }
         }
 
@@ -781,11 +786,42 @@ namespace SemiconductorUi.Wpf.ViewModels
         private void Logout()
         {
             if (!State.IsLoggedIn) return;
+
+            // 원본 277e4ee: 공정이 도는 중(일시정지·알람 대기 포함)이나 서보 ON/원점복귀 중에는 로그아웃을 막습니다.
+            // 로그아웃하면 일시정지·시작 버튼이 잠기는데 TM은 계속 움직이기 때문입니다.
+            if (Engine.IsProcessActiveOrStarting())
+            {
+                AddLog($"공정 진행 중 로그아웃 시도 차단 (사용자: {State.CurrentUser})", "WARN");
+                _dialogs.Warn(
+                    "공정이 진행 중(일시정지 포함)이거나 서보 ON·원점복귀 중에는 로그아웃할 수 없습니다.\n\n" +
+                    "공정이 끝나거나 '공정 초기화' 후에 로그아웃해 주세요.\n" +
+                    "급히 멈춰야 하면 긴급 정지를 누르세요.",
+                    "로그아웃 제한");
+                return;
+            }
+
             AddLog($"로그아웃: {State.CurrentUser}", "INFO");
             State.IsLoggedIn = false;
             State.CurrentUser = "Guest";
             State.CurrentRole = "없음";
             SetProcessState(ProcessState.Idle, "로그아웃으로 인해 공정을 대기 상태로 전환했습니다.");
+        }
+
+        /// <summary>
+        /// 원본 9252123 Form1_FormClosing: 공정이 진행 중(일시정지 포함)이거나 서보 ON·원점복귀 중이면 창을 닫지 않는다.
+        /// 닫으면 확인 없이 진공 OFF → 실린더 후진 → 서보 OFF가 실행되기 때문이다. 닫아도 되면 true.
+        /// </summary>
+        public bool ConfirmWindowClose()
+        {
+            if (!Engine.IsProcessActiveOrStarting()) return true;
+
+            AddLog($"공정 진행 중 프로그램 종료 시도 차단 (사용자: {State.CurrentUser})", "WARN");
+            _dialogs.Warn(
+                "공정이 진행 중(일시정지 포함)이거나 서보 ON·원점복귀 중에는 프로그램을 닫을 수 없습니다.\n\n" +
+                "닫으면 진공 OFF → 실린더 후진 → 서보 OFF가 바로 실행됩니다.\n" +
+                "공정이 끝나거나 '공정 초기화' 후에 닫아 주세요. 급히 멈춰야 하면 긴급 정지를 누르세요.",
+                "프로그램 종료 제한");
+            return false;
         }
 
         private void OpenUserManagement()
@@ -1034,6 +1070,18 @@ namespace SemiconductorUi.Wpf.ViewModels
 
         private void DisconnectEthercat()
         {
+            // 원본 9252123: 공정 중에 해제하면 공정 루프가 하드웨어 대신 시뮬레이션 분기로 넘어가 단계가 바로 '완료'로 처리됩니다.
+            if (Engine.IsProcessActiveOrStarting())
+            {
+                AddLog($"공정 진행 중 EtherCAT 연결 해제 시도 차단 (사용자: {State.CurrentUser})", "WARN");
+                _dialogs.Warn(
+                    "공정이 진행 중(일시정지 포함)이거나 서보 ON·원점복귀 중에는 EtherCAT 연결을 해제할 수 없습니다.\n\n" +
+                    "해제하면 공정이 장비 없이 시뮬레이션처럼 계속 진행됩니다.\n" +
+                    "공정이 끝나거나 '공정 초기화' 후에 해제해 주세요. 급히 멈춰야 하면 긴급 정지를 누르세요.",
+                    "연결 해제 제한");
+                return;
+            }
+
             try
             {
                 HardwareManager.DisconnectEthercat();
@@ -1062,7 +1110,21 @@ namespace SemiconductorUi.Wpf.ViewModels
                 return;
             }
 
+            // 원본 0dc53fe: 서보 ON은 서보를 껐다 다시 켭니다(OFF → ON). 공정 중이나 원점복귀 중에 누르면 진행 중인 이동·원점복귀가 끊깁니다.
+            if (Engine.IsProcessActiveOrStarting())
+            {
+                AddLog($"공정 진행 중 서보 ON 시도 차단 (사용자: {State.CurrentUser})", "WARN");
+                _dialogs.Warn(
+                    "공정이 진행 중(일시정지·알람 대기 포함)이거나 서보 ON·원점복귀 중에는 서보 ON을 할 수 없습니다.\n\n" +
+                    "서보 ON은 서보를 껐다 다시 켜므로 진행 중인 이동이나 원점복귀가 끊깁니다.\n" +
+                    "급히 멈춰야 하면 긴급 정지를 누르세요.",
+                    "서보 ON 제한");
+                return;
+            }
+
             AddLog("서보모터 ON 시작...", "INFO");
+            // 원본 7b1d886: 서보 ON은 서보를 먼저 끄고 다시 켭니다. 꺼진 동안 축이 밀리거나 상하축이 내려앉을 수 있으므로 원점복귀를 다시 해야 합니다.
+            Engine.RequireRehome("상단 바 서보 ON (서보를 껐다 켬)");
             _servoBusy = true;
             RelayCommand.Refresh();
             try
@@ -1103,11 +1165,25 @@ namespace SemiconductorUi.Wpf.ViewModels
                 _dialogs.Warn("EtherCAT이 연결되지 않았습니다.", "연결 필요");
                 return;
             }
+
+            // 원본 7b1d886: 공정 중 서보 OFF는 공정을 멈추지 않습니다. 다음 이동 명령 때 DLL이 서보를 다시 켜서 TM이 움직입니다.
+            // 그래서 공정 중(일시정지·알람 대기 포함)이나 서보 ON·원점복귀 중에는 막고, 멈출 때는 긴급 정지를 쓰게 합니다.
+            if (Engine.IsProcessActiveOrStarting())
+            {
+                AddLog($"공정 진행 중 서보 OFF 시도 차단 (사용자: {State.CurrentUser})", "WARN");
+                _dialogs.Warn(
+                    "공정이 진행 중(일시정지·알람 대기 포함)이거나 서보 ON·원점복귀 중에는 서보 OFF를 할 수 없습니다.\n\n" +
+                    "공정 중 서보 OFF는 공정을 멈추지 않고, 다음 이동 때 서보가 다시 켜져 TM이 움직입니다.\n" +
+                    "멈춰야 하면 긴급 정지를 누르세요.",
+                    "서보 OFF 제한");
+                return;
+            }
+
             try
             {
                 ServoPowerService.TurnOff(Ethercat);
                 IsServoOn = false;
-                HardwareManager.ResetTmHardwareInitialized();
+                Engine.RequireRehome("상단 바 서보 OFF"); // 원점복귀를 다시 할 때까지 이동 금지
                 AddLog("서보모터 OFF", "INFO");
             }
             catch (Exception ex)
@@ -1162,7 +1238,7 @@ namespace SemiconductorUi.Wpf.ViewModels
                     OnServoStateChanged = servoIsOn =>
                     {
                         Engine.ServoOn = servoIsOn; // 서보 상태 플래그
-                        if (!servoIsOn) HardwareManager.ResetTmHardwareInitialized(); // 서보 OFF 시 원점복귀 상태 초기화
+                        if (!servoIsOn) Engine.RequireRehome("장비 제어 창 서보 OFF"); // 원점복귀를 다시 할 때까지 이동 금지
                         Engine.UpdateServoStatusLabel();
                         NotifyServo();
                     },

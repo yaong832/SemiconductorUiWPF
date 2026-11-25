@@ -30,6 +30,8 @@ namespace SemiconductorUi.Tests
             var hardware = new HardwareManager(device, (m, l) => _host.AddLog(m, l));
             _simulation = new SimulationController(new ManualTimer(), (s, e) => { });
             _engine = new ProcessEngine(_vm, device, hardware, _simulation, _host);
+            // 운전자가 레시피를 적용한 상태에서 시작한다 (원본 6c3b7e7부터 미적용이면 공정을 시작하지 않음)
+            _engine.RecipeApplied = true;
             _engine.envRandom = new System.Random(1234);
         }
 
@@ -57,12 +59,32 @@ namespace SemiconductorUi.Tests
         };
 
         [TestMethod]
-        public void BeforeRecipe_ProcessingChamberShowsPvButNoSv()
+        public void StartWithoutRecipe_IsRefused_AndShowsNoSv()
+        {
+            // 원본 6c3b7e7: 레시피를 한 번도 적용하지 않았으면 새 공정을 시작하지 않는다
+            _engine.RecipeApplied = false;
+            _engine.ToggleFoupMountButton();
+            _host.WaferCountAnswer = 3;
+            _engine.WaferLoadingButton();
+            _engine.StartButton();
+
+            Assert.IsFalse(_simulation.IsRunning, "레시피 미적용이면 시작하지 않습니다");
+            Assert.IsTrue(_host.Messages.Any(m => m.StartsWith("레시피가 적용되지 않았습니다.")));
+            Assert.IsTrue(_host.Logs.Any(l => l.StartsWith("WARN 레시피 미적용 상태에서 공정 시작 시도 차단")));
+            Assert.IsTrue(_engine.GetEnvironmentRows("PMA").All(r => r[2] == "-"), "레시피를 적용하기 전에는 SV가 없습니다");
+
+            // 적용하면 같은 준비 상태에서 시작된다
+            _engine.RecipeApplied = true;
+            _engine.StartButton();
+            Assert.IsTrue(_simulation.IsRunning);
+        }
+
+        [TestMethod]
+        public void ProcessingChamberShowsPv_AndGasPvOnlyWhereSvIsSet()
         {
             StartAndRunUntilAProcessing();
             var rows = _engine.GetEnvironmentRows("PMA");
             Assert.AreEqual(6, rows.Length);
-            Assert.IsTrue(rows.All(r => r[2] == "-"), "레시피를 적용하기 전에는 SV가 없습니다");
             Assert.AreNotEqual("-", rows.First(r => r[0] == "온도")[1], "공정 중이면 온도 PV가 나옵니다");
             Assert.AreNotEqual("-", rows.First(r => r[0] == "NF3")[1]);
 

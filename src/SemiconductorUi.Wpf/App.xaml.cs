@@ -12,6 +12,15 @@ namespace SemiconductorUi.Wpf
     {
         private MainViewModel _viewModel;
 
+        /// <summary>Windows 종료·로그오프로 끝나는 중이면 true. 이때는 공정 중이어도 창 닫기를 막지 않는다.</summary>
+        internal static bool IsSessionEnding { get; private set; }
+
+        protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+        {
+            IsSessionEnding = true;
+            base.OnSessionEnding(e);
+        }
+
         protected override void OnExit(ExitEventArgs e)
         {
             // 마지막 10초 안에 센 유지보수 카운터도 남도록 저장한다 (원본 Form1.OnFormClosed).

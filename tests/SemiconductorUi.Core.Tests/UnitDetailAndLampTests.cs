@@ -31,6 +31,8 @@ namespace SemiconductorUi.Tests
             var hardware = new HardwareManager(device, (m, l) => _host.AddLog(m, l));
             _simulation = new SimulationController(new ManualTimer(), (s, e) => { });
             _engine = new ProcessEngine(_vm, device, hardware, _simulation, _host);
+            // 운전자가 레시피를 적용한 상태에서 시작한다 (원본 6c3b7e7부터 미적용이면 공정을 시작하지 않음)
+            _engine.RecipeApplied = true;
             _engine.LampClockMs = () => _now;
         }
 
