@@ -8,6 +8,13 @@
     <AssemblyName>SemiconductorUi.Wpf</AssemblyName>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
+    <!--
+      실행 파일(exe)은 32비트로 만든다. IEG3268_Dll.dll이 cifX 드라이버 핸들(void*)을 UInt32에 담아 두어서
+      64비트 프로세스에서는 핸들이 잘린다. 원본 exe도 .NET Framework 기본값(32비트 선호)으로 32비트로 실행된다.
+      어셈블리는 AnyCPU로 두어서 SnapshotTool(64비트)도 이 프로젝트를 그대로 쓸 수 있다.
+      장비 PC에는 .NET 8 Desktop Runtime x86이 필요하다 (또는 win-x86 self-contained로 publish).
+    -->
+    <AppHostRuntimeIdentifier>win-x86</AppHostRuntimeIdentifier>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\SemiconductorUi.Core\SemiconductorUi.Core.csproj" />

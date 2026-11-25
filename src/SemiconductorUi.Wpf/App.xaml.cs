@@ -44,6 +44,12 @@ namespace SemiconductorUi.Wpf
             ExceptionHandler.ShowErrorMessage = msg =>
                 MessageBox.Show(msg, "오류", MessageBoxButton.OK, MessageBoxImage.Error);
             DispatcherUnhandledException += OnDispatcherUnhandledException;
+            // 원본 Program.Main: 화면 스레드 밖(장비 타이머·작업 스레드)에서 처리되지 않은 예외도 오류 로그 파일에 남긴다.
+            // 이 경우 프로그램은 그대로 종료되지만, 왜 죽었는지는 Logs 폴더에서 볼 수 있다.
+            AppDomain.CurrentDomain.UnhandledException += (s, args) =>
+            {
+                if (args.ExceptionObject is Exception ex) ExceptionHandler.HandleException(ex, "Unhandled");
+            };
 
             // 설정 파일을 읽기 전에: 예약된 설정 복원, 하루 한 번 자동 백업 (원본 Program.Main)
             var startupNotes = SemiconductorUi.Services.SettingsBackup.RunStartupTasks(DateTime.Now, out bool settingsRestored);

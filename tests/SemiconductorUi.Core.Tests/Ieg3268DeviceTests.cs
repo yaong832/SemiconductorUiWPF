@@ -143,5 +143,26 @@ namespace SemiconductorUi.Tests
             Assert.IsFalse(new EthercatCommunicationStatus(true, 0x800C0021, CifxConstants.BusStateOn, 0).IsHealthy, "버스 조회 실패");
             Assert.IsFalse(new EthercatCommunicationStatus(true, 0, CifxConstants.BusStateOn, 0x800C0021).IsHealthy, "입력 읽기 실패");
         }
+
+        [TestMethod]
+        public void ProcessBitnessProblem_OnlyFor64BitProcess()
+        {
+            Assert.IsNull(Ieg3268Device.ProcessBitnessProblem(false), "32비트는 연결해도 된다");
+            StringAssert.Contains(Ieg3268Device.ProcessBitnessProblem(true), "32비트(x86)");
+        }
+
+        [TestMethod]
+        public void Connect_In64BitProcess_IsRefusedBeforeTouchingDriver()
+        {
+            if (!Environment.Is64BitProcess)
+            {
+                Assert.Inconclusive("32비트 테스트 실행에서는 확인할 수 없습니다.");
+            }
+
+            // 드라이버(cifx32dll.dll)를 부르기 전에 막혀야 한다. 불렸다면 DllNotFoundException 등이 났을 것이다.
+            var ex = Assert.ThrowsException<InvalidOperationException>(() => _device.CIFX_50RE_Connect());
+            StringAssert.Contains(ex.Message, "64비트");
+            Assert.AreEqual(0, _channel.Writes.Count);
+        }
     }
 }

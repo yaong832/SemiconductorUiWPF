@@ -1036,6 +1036,26 @@ namespace SemiconductorUi.Wpf.ViewModels
                 return;
             }
 
+            // 실제 장치(IEG3268 DLL)는 32비트 프로세스에서만 바르게 동작한다. exe는 32비트로 만들지만
+            // 'dotnet SemiconductorUi.Wpf.dll'처럼 64비트로 띄운 경우를 여기서 알기 쉽게 막는다.
+            if (Ethercat is Ieg3268Device)
+            {
+                string bitnessProblem = Ieg3268Device.ProcessBitnessProblem(Environment.Is64BitProcess);
+                if (bitnessProblem != null)
+                {
+                    EthercatState = EthercatLinkState.ConnectionFailed;
+                    AddLog($"EtherCAT 연결 차단: {bitnessProblem}", "ERROR");
+                    _dialogs.Error(
+                        "이 프로그램이 64비트로 실행되고 있어 EtherCAT에 연결하지 않았습니다.\n\n" +
+                        "장비 DLL(IEG3268)은 32비트 프로그램에서만 바르게 동작합니다 (원본 exe도 32비트로 실행됩니다).\n" +
+                        "SemiconductorUi.Wpf.exe를 직접 실행해 주세요. 장비 PC에 .NET 8 Desktop Runtime (x86)이 있어야 합니다.\n\n" +
+                        "시뮬레이션 모드로 동작합니다.",
+                        "연결 오류");
+                    NotifyServo();
+                    return;
+                }
+            }
+
             try
             {
                 if (HardwareManager.ConnectEthercat())

@@ -94,8 +94,28 @@ namespace SemiconductorUi.Hardware
 
         #region 연결 / 데이터 수신
 
+        /// <summary>
+        /// IEG3268 DLL은 cifX 드라이버 핸들(C의 void*)을 UInt32 필드에 담아 cifx32dll.dll에 ref UInt32로 넘깁니다.
+        /// 64비트 프로세스에서는 드라이버가 8바이트 핸들을 4바이트 자리에 써서, 핸들이 잘리고 옆 메모리를 덮어씁니다.
+        /// 원본 exe는 .NET Framework 기본값(32비트 선호)으로 32비트로 실행되어 이 문제가 없습니다.
+        /// 64비트이면 연결하면 안 되는 이유를, 32비트이면 null을 돌려줍니다.
+        /// </summary>
+        public static string ProcessBitnessProblem(bool is64BitProcess)
+        {
+            return is64BitProcess
+                ? "64비트 프로세스에서는 IEG3268 DLL의 드라이버 핸들(32비트)이 잘리므로 연결하지 않습니다. 32비트(x86)로 실행하세요."
+                : null;
+        }
+
         public bool CIFX_50RE_Connect()
         {
+            // 드라이버를 열기 전에 막는다. 연 뒤에는 이미 메모리가 덮어써졌을 수 있다.
+            string bitnessProblem = ProcessBitnessProblem(Environment.Is64BitProcess);
+            if (bitnessProblem != null)
+            {
+                throw new InvalidOperationException(bitnessProblem);
+            }
+
             lock (_sync)
             {
                 _isConnected = _dll.CIFX_50RE_Connect();
