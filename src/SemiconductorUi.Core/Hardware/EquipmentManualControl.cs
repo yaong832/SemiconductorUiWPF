@@ -241,14 +241,14 @@ namespace SemiconductorUi.Hardware
 
         #region 막기 (원본 EnsureManualIoAllowed / 연결 확인)
 
-        /// <summary>원본 EnsureManualIoAllowed: 자동 공정 실행/일시정지 중이면 안내하고 false</summary>
+        /// <summary>원본 EnsureManualIoAllowed: 공정 중(일시정지·알람 대기, 서보 ON·원점복귀 포함)이면 안내하고 false</summary>
         public bool EnsureManualIoAllowed(string actionName)
         {
             if (IsAutoProcessActive != null && IsAutoProcessActive())
             {
                 _showMessage(
-                    $"자동 공정 실행/일시정지 중에는 '{actionName}' 수동 제어를 할 수 없습니다.\n" +
-                    "공정 정지 후 장비 점검용으로 사용해 주세요.\n" +
+                    $"공정이 도는 중(일시정지·알람 대기 포함)이거나 서보 ON·원점복귀 중에는 '{actionName}' 수동 제어를 할 수 없습니다.\n" +
+                    "공정이 끝나거나 '공정 리셋'을 한 뒤, 원점복귀까지 끝나면 장비 점검용으로 사용해 주세요.\n" +
                     "(공정 중 수동 제어는 자동 시퀀스와 충돌합니다. 급히 멈춰야 하면 긴급 정지를 누르세요.)",
                     "수동 제어 제한",
                     MessageKind.Warning);

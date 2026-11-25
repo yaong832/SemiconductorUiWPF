@@ -29,6 +29,12 @@ namespace SemiconductorUi.Process
                 return;
             }
 
+            if (_postProcessHomingInProgress)
+            {
+                AddLogMessage("공정 종료 원점복귀가 진행 중입니다. 끝난 뒤 다시 시작하세요.", "WARN");
+                return;
+            }
+
             ClearAlarmHold();
 
             // EtherCAT 연결 확인 (연결되어 있으면 실제 장비 제어)
@@ -45,7 +51,8 @@ namespace SemiconductorUi.Process
                     SetChamberLamp(EquipmentRegion.ChamberC, false);
                     
                     // 공정 시작 전 서보 ON + 원점복귀 — UI 스레드 블로킹 방지(백그라운드)
-                    if (!TmHardwareInitialized)
+                    // 서보가 꺼졌던 뒤(원점복귀 필요)에는 원점복귀 완료 표시가 남아 있어도 원점복귀부터 합니다.
+                    if (!TmHardwareInitialized || IsRehomeRequired())
                     {
                         AddLogMessage("공정 시작 - TM 하드웨어 초기화 중 (서보 ON + 원점복귀, UI 비차단)", "INFO");
                         BeginHardwareInitThenStartSimulation();
@@ -96,7 +103,7 @@ namespace SemiconductorUi.Process
         private void BeginHardwareInitThenStartSimulation()
         {
             _hardwareInitInProgress = true;
-            UpdateProcessControlButtons();
+            RefreshBackgroundHomingStatus();
 
             HardwareOperation.Run(EtherCAT_M, () =>
             {
@@ -115,7 +122,7 @@ namespace SemiconductorUi.Process
                 Host.BeginInvoke(() =>
                 {
                     _hardwareInitInProgress = false;
-                    UpdateProcessControlButtons();
+                    RefreshBackgroundHomingStatus();
 
                     if (!ok)
                     {
@@ -296,7 +303,7 @@ namespace SemiconductorUi.Process
             }
 
             IsServoOn = false;
-            TmHardwareInitialized = false;
+            RequireRehome($"비상정지 ({source})");
             TmHardwareActionPending = false;
             TmSettleWaiting = false;
             HasAlarm = true;
@@ -553,7 +560,7 @@ namespace SemiconductorUi.Process
                     UpdateMainLampColors(null, false, true);
                     break;
                 default:
-                    StatusProcessText = "공정 상태: 대기";
+                    StatusProcessText = GetIdleStatusText();
                     statusPressureText = "챔버 압력: 안정";
                     statusTemperatureText = "온도: 정상 범위 유지";
                     StatusDoorText = "문 상태: 모두 닫힘";

@@ -18,5 +18,6 @@
   <ItemGroup>
     <InternalsVisibleTo Include="SemiconductorUi.Core.Tests" />
     <InternalsVisibleTo Include="SemiconductorUi.Wpf" />
+    <InternalsVisibleTo Include="SnapshotTool" />
   </ItemGroup>
 </Project>

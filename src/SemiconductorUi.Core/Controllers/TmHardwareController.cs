@@ -238,7 +238,13 @@ namespace SemiconductorUi.Controllers
         private bool _isInitialized;
         private bool _isServoOn;
         private bool _isHomed;
-        private bool _hasEverHomed; // 세션 내 원점복귀 1회 이상 완료 (이동해도 유지)
+        private bool _hasEverHomed; // 세션 내 원점복귀 1회 이상 완료 (이동해도 유지, 서보가 꺼지면 지움)
+
+        // 이 프로그램이 원점복귀를 직접 끝내기 전이거나, 그 뒤 서보가 꺼진 적이 있으면 true.
+        // 서보가 꺼진 동안 축이 밀리거나 상하축이 내려앉을 수 있으므로, 드라이브의 원점복귀 완료(HOME_D) 신호만으로는
+        // 원점을 믿지 않고 원점복귀를 다시 할 때까지 이동을 막습니다.
+        private bool _rehomeRequired = true;
+        private string _rehomeReason = "프로그램 연결 후 원점복귀 전";
         private bool _isVacuumOn;
 
         // 현재 상태 추적
@@ -270,6 +276,16 @@ namespace SemiconductorUi.Controllers
         /// 세션 중 원점복귀를 한 번이라도 완료했는지 (이동 인터락용)
         /// </summary>
         public bool HasEverHomed => _hasEverHomed;
+
+        /// <summary>
+        /// 원점복귀를 다시 해야 하는지 (연결 후 아직 안 했거나, 서보 OFF·비상정지·서보 알람 뒤)
+        /// </summary>
+        public bool RehomeRequired => _rehomeRequired;
+
+        /// <summary>
+        /// 원점복귀가 필요해진 이유 (안내·로그용)
+        /// </summary>
+        public string RehomeReason => _rehomeReason;
 
         /// <summary>
         /// 진공 흡착 상태
@@ -359,8 +375,13 @@ namespace SemiconductorUi.Controllers
                 {
                     try
                     {
-                        // 양쪽 HOME_D면 세션 원점복귀 이력으로 인정 (공정/수동 홈 경로 동기화)
-                        if (_ethercat.Axis1_Status("HOME_D") && _ethercat.Axis2_Status("HOME_D"))
+                        // 양쪽 HOME_D면 세션 원점복귀 이력으로 인정 (공정/수동 홈 경로 동기화).
+                        // 단, 서보가 꺼진 뒤(원점복귀 필요)에는 드라이브 신호만으로 인정하지 않습니다.
+                        if (_rehomeRequired)
+                        {
+                            Log($"서보 상태 동기화: ON (원점복귀 필요 - {_rehomeReason})", "INFO");
+                        }
+                        else if (_ethercat.Axis1_Status("HOME_D") && _ethercat.Axis2_Status("HOME_D"))
                         {
                             _isHomed = true;
                             _hasEverHomed = true;
@@ -504,6 +525,7 @@ namespace SemiconductorUi.Controllers
                     {
                         _isHomed = true;
                         _hasEverHomed = true;
+                        ClearRehomeRequired();
                         _currentAxis1Pos = 0;
                         _currentAxis2Pos = 0;
                         Log("원점복귀 완료 (상하 → 좌우 순서)", "INFO");
@@ -529,10 +551,55 @@ namespace SemiconductorUi.Controllers
         {
             _isHomed = true;
             _hasEverHomed = true;
+            ClearRehomeRequired();
             _isServoOn = true;
             _currentAxis1Pos = 0;
             _currentAxis2Pos = 0;
             Log("원점복귀 상태 플래그 동기화 (HasEverHomed=true)", "INFO");
+        }
+
+        /// <summary>
+        /// 서보가 꺼졌을 때(서보 OFF, 비상정지, 서보 알람 등) 부릅니다.
+        /// 원점복귀를 다시 끝낼 때까지(PerformHoming 또는 MarkHomedAfterSuccessfulHoming) 축 이동을 보내지 않습니다.
+        /// </summary>
+        public void RequireRehome(string reason)
+        {
+            _isHomed = false;
+            _hasEverHomed = false;
+            _isServoOn = false;
+            if (_rehomeRequired)
+            {
+                // 이미 원점복귀 필요 상태면 처음 원인(예: 비상정지)을 그대로 둡니다
+                return;
+            }
+            _rehomeRequired = true;
+            _rehomeReason = string.IsNullOrWhiteSpace(reason) ? "서보 OFF" : reason;
+            Log($"원점복귀 필요: {_rehomeReason} - 원점복귀를 다시 하기 전에는 축 이동을 보내지 않습니다", "WARN");
+        }
+
+        /// <summary>
+        /// 이 프로그램이 원점복귀를 끝냈을 때만 부릅니다. 그 사이 비상정지가 눌렸으면 원점복귀 필요 상태를 그대로 둡니다.
+        /// </summary>
+        private void ClearRehomeRequired()
+        {
+            if (_ethercat.IsEmergencyStopped)
+            {
+                _isHomed = false;
+                _hasEverHomed = false;
+                Log("원점복귀가 끝났지만 비상정지 중이라 원점복귀 완료로 인정하지 않습니다", "WARN");
+                return;
+            }
+            _rehomeRequired = false;
+        }
+
+        /// <summary>
+        /// 원점복귀 전이라 이동할 수 없을 때의 안내 문구
+        /// </summary>
+        private string NotHomedMessage()
+        {
+            return _rehomeRequired
+                ? $"원점복귀가 필요합니다 ({_rehomeReason}). 원점복귀를 먼저 하세요"
+                : "원점복귀가 완료되지 않았습니다";
         }
 
         /// <summary>
@@ -566,6 +633,8 @@ namespace SemiconductorUi.Controllers
                 _isInitialized = false;
                 _isHomed = false;
                 _hasEverHomed = false;
+                _rehomeRequired = true;
+                _rehomeReason = "TM 하드웨어 종료";
             }
             catch (Exception ex)
             {
@@ -590,7 +659,7 @@ namespace SemiconductorUi.Controllers
                 // 세션 원점복귀 미완료 시 이동 금지
                 if (!_hasEverHomed)
                 {
-                    return TmOperationResult.Fail("원점복귀가 완료되지 않았습니다");
+                    return TmOperationResult.Fail(NotHomedMessage());
                 }
 
                 // 안전 인터락: 실린더가 후진 상태여야 이동 가능
@@ -705,7 +774,7 @@ namespace SemiconductorUi.Controllers
             {
                 if (!_hasEverHomed)
                 {
-                    return TmOperationResult.Fail("원점복귀가 완료되지 않았습니다");
+                    return TmOperationResult.Fail(NotHomedMessage());
                 }
 
                 // 상하 이동은 실린더 상태와 무관 (좌우 이동만 인터락)
@@ -1294,7 +1363,7 @@ namespace SemiconductorUi.Controllers
 
             if (!_hasEverHomed)
             {
-                return TmOperationResult.Fail("원점복귀가 완료되지 않았습니다");
+                return TmOperationResult.Fail(NotHomedMessage());
             }
 
             if (!CheckCylinderRetracted())

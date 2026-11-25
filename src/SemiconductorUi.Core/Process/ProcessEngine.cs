@@ -101,6 +101,11 @@ namespace SemiconductorUi.Process
         private volatile bool _hardwareInitInProgress;
         public bool IsHardwareInitInProgress => _hardwareInitInProgress;
 
+        // 공정이 끝난 뒤(로트 완료 후, 공정 리셋 후) 백그라운드에서 TM을 원점으로 돌리는 중.
+        // 화면 공정 상태는 '대기'지만 축이 움직이고 있으므로 공정 중과 같이 잠급니다 (IsProcessActiveOrStarting).
+        private volatile bool _postProcessHomingInProgress;
+        public bool IsPostProcessHomingInProgress => _postProcessHomingInProgress;
+
         // 알람 발생 전 프로세스 상태 저장 (알람 리셋 시 원래 상태로 복귀하기 위함)
         internal ProcessState? _stateBeforeAlarm = null;
 
@@ -263,7 +268,7 @@ namespace SemiconductorUi.Process
                         {
                             isServoOn = false;
                             IsServoOn = false;
-                            TmHardwareInitialized = false;
+                            RequireRehome("서보가 꺼져 있는 것을 확인");
                             AddLogMessage("서보 상태 확인: 하드웨어는 OFF 상태입니다", "WARN");
                         }
                         else
@@ -421,7 +426,8 @@ namespace SemiconductorUi.Process
         {
             if (!SimulationRunning)
             {
-                return CurrentProcessState == ProcessState.Error ? "Error" : "대기";
+                return CurrentProcessState == ProcessState.Error ? "Error"
+                    : IsBackgroundHomingInProgress() ? "원점복귀 중" : "대기";
             }
             if (SimulationPaused)
             {
